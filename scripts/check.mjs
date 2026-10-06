@@ -14,4 +14,4 @@ function check(dir) {
     }
   }
 }
-for (const p of ["backend/src", "scripts", "api"]) check(resolve(root, p));
+for (const p of ["backend/src", "scripts"]) check(resolve(root, p));

@@ -88,7 +88,7 @@ export function AdminDashboard() {
     </Shell>
   );
 }
-export function AdminRecords({ entity }) {
+export function AdminRecords({ entity, embedded = false, onChange }) {
   const [page, setPage] = useState(1),
     [search, setSearch] = useState(""),
     [edit, setEdit] = useState(null),
@@ -137,6 +137,7 @@ export function AdminRecords({ entity }) {
       setEdit(null);
       r.reload();
       setMessage("Changes saved.");
+      onChange?.();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -153,6 +154,7 @@ export function AdminRecords({ entity }) {
       setRemove(null);
       r.reload();
       setMessage("Record removed from active use. Audit history retained.");
+      onChange?.();
     } catch (e) {
       setError(e.message);
       setRemove(null);
@@ -160,12 +162,29 @@ export function AdminRecords({ entity }) {
       setBusy(false);
     }
   };
+  const Wrapper = embedded ? React.Fragment : Shell;
   return (
-    <Shell
-      admin
-      title={entity === "students" ? "Student directory" : "Team management"}
-      subtitle="Manage registrations and competition access."
+    <Wrapper
+      {...(embedded
+        ? {}
+        : {
+            admin: true,
+            title: entity === "students" ? "Member details" : "Team management",
+            subtitle: "Manage registrations and competition access.",
+          })}
     >
+      {embedded && (
+        <div className="section-heading">
+          <h2>
+            {entity === "students" ? "Member details" : "Team management"}
+          </h2>
+          <span>
+            {entity === "students"
+              ? "Deleting a member also removes them from the roster."
+              : "Team names are fixed after registration."}
+          </span>
+        </div>
+      )}
       <Notice error>{error || r.error}</Notice>
       <Notice>{message}</Notice>
       <Card>
@@ -188,7 +207,7 @@ export function AdminRecords({ entity }) {
             </a>
             {entity === "students" && (
               <Button onClick={() => setEdit({})}>
-                <Plus size={16} /> Add student
+                <Plus size={16} /> Add member
               </Button>
             )}
           </div>
@@ -263,6 +282,7 @@ export function AdminRecords({ entity }) {
       {edit && entity === "teams" && (
         <Card>
           <TeamEditor
+            key={edit._id}
             value={edit}
             busy={busy}
             onClose={() => setEdit(null)}
@@ -277,6 +297,7 @@ export function AdminRecords({ entity }) {
                 setEdit(null);
                 r.reload();
                 setMessage("Team updated.");
+                onChange?.();
               } catch (e) {
                 setError(e.message);
               } finally {
@@ -321,10 +342,11 @@ export function AdminRecords({ entity }) {
                   pattern="[6-9][0-9]{9}"
                 />
                 <Field
-                  label="Email (optional)"
+                  label="Email"
                   name="email"
                   type="email"
                   defaultValue={edit.email}
+                  required
                 />
               </>
             ) : (
@@ -380,7 +402,7 @@ export function AdminRecords({ entity }) {
           records will be retained.
         </ConfirmDialog>
       )}
-    </Shell>
+    </Wrapper>
   );
 }
 export function AdminGame() {

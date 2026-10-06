@@ -7,4 +7,5 @@ vortex-main/
 node_modules/
 frontend/dist/
 docs/
+api/
 backend/test/

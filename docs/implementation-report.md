@@ -1,17 +1,17 @@
 # Fingertip Frenzy — implementation report
 
-Implemented in this workspace with passing build, lint and 17 automated checks. Browser verification covered common authentication, teams, administration, Puzzle/Detective completion, all three Memory stages and Calculator's presence lobby. Production deployment and physical camera play remain unverified.
+Implemented in this workspace with passing build, lint and 18 automated checks. Browser verification covered common authentication, teams, administration, Puzzle/Detective completion, all three Memory stages and Calculator's presence lobby. Production deployment and physical camera play remain unverified.
 
 ## Architecture and technologies
 
-React 19 / Vite 6 frontend; Express 4 / Mongoose 8 backend; one MongoDB database and same-origin API. Zod validates requests, scrypt protects admin passwords, opaque cookies authenticate users, Helmet supplies API headers, and Sharp crops images. Vercel runs one ordinary HTTP handler. MongoDB stores game state, deadlines and results; there is no production disk fallback or background socket requirement. This is JavaScript; the syntax check is not TypeScript checking.
+React 19 / Vite 6 frontend; Express 4 / Mongoose 8 backend; one MongoDB database and same-origin API. Zod validates requests, scrypt protects admin passwords, opaque cookies authenticate users, Helmet supplies API headers, and Sharp crops images. Vercel builds two services: an Express API and a Vite frontend. MongoDB stores game state, deadlines and results; there is no production disk fallback or background socket requirement. This is JavaScript; the syntax check is not TypeScript checking.
 
 ~~~
 frontend/src/       Layouts, auth, student/admin pages, retained React games
 frontend/public/    Original assets and isolated Calculator/Memory DOM games
 backend/src/        Models, middleware, validation, services, engines and routes
-backend/test/       Six engine checks and eleven MongoDB integration checks
-api/index.js        Vercel Express handler
+backend/test/       Six engine checks and twelve MongoDB integration checks
+vercel.json         Public routing for independently built services
 scripts/            Bootstrap, indexes, imports, migration and isolated UI fixture
 docs/               Audit, content, deployment, verification and change manifest
 ~~~
@@ -39,7 +39,7 @@ Create indexes explicitly with scripts/indexes.mjs. Transactions require a repli
 
 Only the leader registers with team name, name, roll, phone and email. Registration creates the leader and team atomically and generates a unique FF- invitation code. Participants log in with that code plus all four identity fields. New teammates join on first login; existing participants must match their saved identity and team. Administrators use privately provisioned email/password credentials. The server issues an HTTP-only opaque cookie, storing only its hash. Requests resolve current user status. Logout removes the session; expiry/deactivated users lose access. Mutating requests must match APP_ORIGIN. Production cookies are Secure and SameSite=Lax. No auth token enters game URLs.
 
-A registered leader shares the invitation code with two teammates. Transactions enforce one team, unique members, registered identity and capacity. The leader may rename the team. Admins edit members, leaders, invitation codes and status. Active attempts lock membership. Calculator requires exactly three members regardless of larger global capacity.
+A registered leader shares the invitation code with two teammates. Transactions enforce one team, unique members, registered identity and capacity. Team names are immutable after registration, including for administrators. Admins edit member identities, rosters, leaders, invitation codes and status. Identity changes revoke sessions. Member deletion detaches the roster transactionally, requires replacement of a current leader and rejects active attempts; team deletion abandons attempts and revokes member sessions. Active attempts lock membership. Calculator requires exactly three members regardless of larger global capacity.
 
 ## Game integration
 
@@ -56,7 +56,7 @@ Four default weights of 25 yield a 1,000-point maximum. If organizers change the
 
 ## Admin capabilities
 
-The visible portal contains only the leaderboard and four ordered game sections. Standings provide filters, paginated exports and score review. Per-game sections provide settings, content, results, correction/invalidation and scoped retries. Result corrections cannot exceed attempt maximum; edits/resets require reasons. Protected legacy maintenance APIs remain for migration tooling; student, team, overview, settings and audit UI routes have been removed.
+The visible portal contains only the leaderboard and four ordered game sections. Standings provide filters, paginated exports and score review. Per-game sections provide settings, content, results, correction/invalidation and scoped retries. Result corrections cannot exceed attempt maximum; edits/resets require reasons. Team/member editors and deletion controls are embedded in the leaderboard; separate student, team, overview, settings and audit UI routes remain removed.
 
 | Section | Game-specific controls |
 |---|---|
@@ -102,7 +102,7 @@ vercel
 vercel --prod
 ~~~
 
-Root vercel.json builds frontend/dist, serves static games/assets, rewrites platform URLs to the SPA and /api paths to api/index.js, and configures a 30-second function limit. CSP permits only same-origin platform scripts; game paths additionally allow retained inline handlers, WebAssembly and MediaPipe hosts. Both restrict objects, framing, base URLs and forms. See deployment.md for full configuration. No deployment was performed.
+Root vercel.json defines backend (Express, src/app.js) and frontend (Vite, dist) services. /api and /api/* route to backend, with the original path preserved; the final catch-all routes to frontend. Its SPA fallback excludes static assets, game frames and development modules. The obsolete root api handler is excluded from deployment. The backend function has a 30-second limit. No bindings are needed: browsers call public same-origin /api and backend imports all game engines locally. Original game repositories are preserved sources, not additional deployed services. CSP permits only same-origin platform scripts; game paths additionally allow retained inline handlers, WebAssembly and MediaPipe hosts. Both restrict objects, framing, base URLs and forms. See deployment.md for full configuration. No deployment was performed.
 
 ## Known limitations
 
@@ -121,4 +121,4 @@ The platform is branded Fingertip Frenzy, organized by IEEE SB NIT Durgapur for 
 
 The enforced round sequence is Image Formation, Detective Case, AI Calculator and Number Memory. The server requires a valid result from the preceding round before creating the next attempt; the dashboard displays disabled locked cards. Direct API requests cannot skip this progression.
 
-The latest build transformed 1,610 modules, lint reported zero warnings/errors and all 17 tests passed. Updated browser checks verified leader registration/code generation, five-field login, automatic teammate enrollment, dark dashboard and five-item admin navigation. See verification.md for evidence and remaining live-device checks.
+The latest build transformed 1,610 modules, lint reported zero warnings/errors and all 18 tests passed. Updated browser checks verified leader registration/code generation, five-field login, automatic teammate enrollment, dark dashboard and five-item admin navigation. See verification.md for evidence and remaining live-device checks.

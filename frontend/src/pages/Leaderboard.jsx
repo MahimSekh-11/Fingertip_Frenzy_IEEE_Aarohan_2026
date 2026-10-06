@@ -9,18 +9,20 @@ import {
   Loading,
   Empty,
   Pager,
+  Button,
   useResource,
 } from "../components/ui";
 import { request } from "../services/api";
 import { catalog } from "./Home";
-import { AdminResults } from "./Admin";
+import { AdminResults, AdminRecords } from "./Admin";
 export function Leaderboard({ admin = false }) {
   const { user } = useAuth(),
     [search, setSearch] = useState(""),
     [query, setQuery] = useState(""),
     [page, setPage] = useState(1),
     [filter, setFilter] = useState(""),
-    [completed, setCompleted] = useState(false);
+    [completed, setCompleted] = useState(false),
+    [management, setManagement] = useState("");
   useEffect(() => {
     const t = setTimeout(() => {
       setQuery(search);
@@ -153,6 +155,52 @@ export function Leaderboard({ admin = false }) {
         <Pager page={page} total={r.data?.total || 0} onPage={setPage} />
       </Card>
       {admin && <AdminResults />}
+      {admin && (
+        <>
+          <Card>
+            <div className="table-toolbar">
+              <div>
+                <h2>Registration management</h2>
+                <p>
+                  Edit participant details, manage rosters or remove teams.
+                  Registered team names stay fixed.
+                </p>
+              </div>
+              <div className="actions">
+                <Button
+                  type="button"
+                  className={management === "teams" ? "" : "secondary"}
+                  onClick={() =>
+                    setManagement(management === "teams" ? "" : "teams")
+                  }
+                >
+                  Manage teams
+                </Button>
+                <Button
+                  type="button"
+                  className={management === "students" ? "" : "secondary"}
+                  onClick={() =>
+                    setManagement(management === "students" ? "" : "students")
+                  }
+                >
+                  Manage members
+                </Button>
+              </div>
+            </div>
+          </Card>
+          {management && (
+            <AdminRecords
+              key={management}
+              entity={management}
+              embedded
+              onChange={() => {
+                r.reload();
+                podium.reload();
+              }}
+            />
+          )}
+        </>
+      )}
       <p className="muted">
         Raw game scores retain their original rules. Global scores normalize
         each game’s maximum and apply organizer-defined weights.

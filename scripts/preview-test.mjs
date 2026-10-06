@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { MongoMemoryReplSet } from "mongodb-memory-server-core";
 import mongoose from "mongoose";
@@ -17,6 +17,16 @@ const mongo = await MongoMemoryReplSet.create({
   replSet: { count: 1, storageEngine: "wiredTiger" },
 });
 process.env.MONGODB_URI = mongo.getUri("aarohan_ui_test");
+const runtimeFile = resolve(".cache/preview-runtime.json");
+if (process.env.FF_TEST_EXPORT_ENV === "1")
+  writeFileSync(
+    runtimeFile,
+    JSON.stringify({
+      MONGODB_URI: process.env.MONGODB_URI,
+      APP_ORIGIN: process.env.APP_ORIGIN,
+      NODE_ENV: "test",
+    }),
+  );
 await connectDB();
 for (const m of Object.values(models)) {
   await m.createCollection();
@@ -117,6 +127,8 @@ async function close() {
   server.close();
   await mongoose.disconnect();
   await mongo.stop();
+  if (process.env.FF_TEST_EXPORT_ENV === "1" && existsSync(runtimeFile))
+    unlinkSync(runtimeFile);
   process.exit(0);
 }
 process.on("SIGINT", close);

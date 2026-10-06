@@ -24,7 +24,7 @@ export const student = z
     name,
     rollNo: roll,
     phoneNo: phone,
-    email: z.string().email().optional(),
+    email: email.optional(),
   })
   .strict();
 export const gameId = z.enum(["calculator", "memory", "puzzle", "detective"]);

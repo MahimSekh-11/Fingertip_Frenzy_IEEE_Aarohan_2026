@@ -2,8 +2,7 @@ import React, { useState } from "react";
 import { Field, Button, Notice, Loading, Badge, useResource } from "./ui";
 import { request } from "../services/api";
 export function TeamEditor({ value, busy, onSave, onClose }) {
-  const [name, setName] = useState(value.name),
-    [status, setStatus] = useState(value.status),
+  const [status, setStatus] = useState(value.status),
     [leader, setLeader] = useState(value.leaderId),
     [ids, setIds] = useState(value.memberIds),
     [regen, setRegen] = useState(false),
@@ -36,7 +35,6 @@ export function TeamEditor({ value, busy, onSave, onClose }) {
           onSubmit={(e) => {
             e.preventDefault();
             onSave({
-              name,
               status,
               leaderId: leader,
               memberIds: ids,
@@ -44,14 +42,9 @@ export function TeamEditor({ value, busy, onSave, onClose }) {
             });
           }}
         >
-          <Field
-            label="Team name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            minLength={2}
-            maxLength={60}
-          />
+          <p>
+            <strong>{value.name}</strong> · Registered team name is fixed.
+          </p>
           <label className="field">
             Status
             <select value={status} onChange={(e) => setStatus(e.target.value)}>

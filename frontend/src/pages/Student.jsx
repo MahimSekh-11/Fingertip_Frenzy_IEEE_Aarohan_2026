@@ -5,7 +5,6 @@ import { Shell } from "../components/Shell";
 import { useAuth } from "../components/Auth";
 import {
   Card,
-  Field,
   Button,
   Notice,
   Badge,
@@ -143,42 +142,9 @@ export function Dashboard({ gamesOnly = false }) {
   );
 }
 export function TeamPage() {
-  const { user, refresh } = useAuth(),
-    r = useResource(() => request("/teams/me")),
+  const r = useResource(() => request("/teams/me")),
     [error, setError] = useState(""),
-    [message, setMessage] = useState(""),
-    [busy, setBusy] = useState(false);
-  const action = async (e, mode) => {
-    e.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
-      const f = new FormData(e.currentTarget),
-        body =
-          mode === "join"
-            ? {
-                code: f.get("code"),
-                rollNo: user.rollNo,
-                phoneNo: user.phoneNo,
-              }
-            : { name: f.get("name") };
-      await request(
-        mode === "join"
-          ? "/teams/join"
-          : mode === "rename"
-            ? "/teams/me"
-            : "/teams",
-        { method: mode === "rename" ? "PATCH" : "POST", body },
-      );
-      await refresh();
-      r.reload();
-      setMessage("Team updated successfully.");
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  };
+    [message, setMessage] = useState("");
   const team = r.data?.team;
   return (
     <Shell title="My team" subtitle="Good ideas get better together.">
@@ -234,22 +200,10 @@ export function TeamPage() {
               ))}
             </div>
           </Card>
-          {user.role === "TEAM_LEADER" && (
-            <Card>
-              <h2>Team settings</h2>
-              <form onSubmit={(e) => action(e, "rename")}>
-                <Field
-                  label="Team name"
-                  name="name"
-                  defaultValue={team.name}
-                  required
-                  minLength={2}
-                  maxLength={60}
-                />
-                <Button busy={busy}>Save name</Button>
-              </form>
-            </Card>
-          )}
+          <p className="muted">
+            Your registered team name is fixed. Contact the administrator for
+            member corrections.
+          </p>
           <TeamScore team={team} />
         </>
       ) : (

@@ -87,6 +87,7 @@
   transform: none !important;
   box-shadow: none !important;
 }
+.platform .field,
 .platform .field span {
   color: #c5d1e2;
   font-size: 12px;

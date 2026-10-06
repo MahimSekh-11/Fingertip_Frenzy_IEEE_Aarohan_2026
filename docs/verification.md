@@ -7,7 +7,7 @@ Locally verified 2026-10-07 (Asia/Calcutta), Windows, Node 20.15 / npm 10.7. Rec
 - npm ci passed with the regenerated lockfile: 270 packages installed in 25 seconds, no metadata warnings. Preview processes were stopped before installation to release Windows native module locks.
 - npm run build passed: 1,610 Vite modules transformed; frontend emitted; backend syntax passed.
 - npm run lint passed: zero warnings/errors.
-- npm test passed: 17 checks, zero failures/skips.
+- npm test passed: 18 checks, zero failures/skips.
 - Legacy migration dry-run: eight teams require correction; source/target unmodified.
 - Original Detective case dry-run validated the bundled case.
 - Source SHA-256 comparison: all inventoried original files unchanged.
@@ -16,19 +16,20 @@ Syntax checks are not TypeScript type checking.
 
 ## Automated coverage
 
-Eleven integration checks use actual Express routes, unique indexes and a real isolated MongoDB replica set. Temporary fixtures never seed production.
+Twelve integration checks use actual Express routes, unique indexes and a real isolated MongoDB replica set. Temporary fixtures never seed production.
 
 1. Leader registration, atomic code creation, duplicate prevention, full five-field login, origin protection, private cookie, authorization, logout and expiration.
-2. First-login teammate enrollment, capacity, invalid code, leader-only edits, exact four-round order and rejection of attempts that skip earlier rounds.
+2. First-login teammate enrollment, capacity, invalid code, immutable team names, exact four-round order and rejection of attempts that skip earlier rounds.
 3. Memory sequence/timing/order, rejection of client scores and persisted three-stage completion.
 4. Puzzle server answers, completion and replay rejection.
 5. Detective hidden answers/hints, sequential questions, replay rejection and hint penalties.
 6. Calculator shared state, original valid equation and persisted result.
-7. Four-game standings, score correction limits/audit, rename and admin sections.
+7. Four-game standings, score correction limits/audit, immutable names and admin sections.
 8. Simultaneous joins at capacity: one success, one conflict; roster remains valid.
 9. Multi-team search/rank/pagination and Memory ratios across different maximum snapshots.
 10. Upload authorization, malformed images, real Sharp crops, retrieved image bytes and audited draft.
 11. Scoped reset invalidates result and grants only its player a retry.
+12. Admin identity edits and normalized email, session revocation, immutable names at route/model levels, leader transfer, active-attempt deletion guards, transactional member removal and team deletion with retained history/audits.
 
 Six engine checks cover nonrepeated Memory digits/positional score, all Calculator difficulty templates, leader start/presence pause, normalization, tie ordering and configuration validation. Deterministic server checks advance stored clocks or shorten snapshot sequences; actual browser play is separate.
 
@@ -67,3 +68,17 @@ Verified against the isolated temporary replica-set fixture on ports 5190/5090. 
 - Temporary viewport overrides were reset and owned preview processes were stopped after verification.
 
 The final ordered-round test run passed all 17 checks, with zero failures, skips or cancellations. Live production deployment and physical camera verification remain the release checks listed above.
+
+
+## Vercel services and administrator management
+
+Verified using official Vercel CLI 62.5.0 with bundled Node 24.19.0 and `vercel dev -L --listen 127.0.0.1:5290`. Local-only mode detected exactly two services without linking or deploying an account project. The isolated replica-set fixture supplied the backend database.
+
+- Shared routing returned JSON from /api/health, HTML from /register and both game frames, and 404 for an unknown API endpoint.
+- SVG and Vite JavaScript modules had correct MIME types after excluding static/dev paths from the SPA rewrite.
+- Browser registration generated a unique code; first-login participant enrollment worked through the shared domain.
+- Administrator edited a participant identity and transferred team leadership through the embedded leaderboard controls. The team editor displayed the fixed registered name without a name input.
+- Screenshot admin-team-management.jpg contains disposable test identities. UI deletion safeguards were exercised through the twelve integration checks rather than deleting live records.
+- Latest automated run: 18 tests passed, zero failures/skips. Production deployment, cloud Atlas connectivity, deployed security headers and physical cameras remain unverified.
+
+The active call graph needs no service bindings: frontend browser code calls public /api; backend engines are local imports, and MongoDB is an external database. The four suggested legacy services are excluded pending user confirmation of the proposed service layout.

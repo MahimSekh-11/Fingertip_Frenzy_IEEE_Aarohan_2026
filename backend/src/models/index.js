@@ -56,7 +56,7 @@ export const User = model(
 export const Team = model(
   "PlatformTeam",
   {
-    name: { type: String, required: true },
+    name: { type: String, required: true, immutable: true },
     code: { type: String, required: true, unique: true },
     leaderId: id,
     memberIds: [Schema.Types.ObjectId],

@@ -204,6 +204,11 @@ test("Teammates join only through full login; membership, capacity and roster lo
     3,
   );
   const rounds = (await players[0].get("/api/games")).body.games;
+  assert.equal(
+    (await call(players[0], "patch", "/teams/me", { name: "Leader rename" }))
+      .status,
+    403,
+  );
   assert.deepEqual(
     rounds.map((round) => round.id),
     ["puzzle", "detective", "calculator", "memory"],
@@ -497,17 +502,17 @@ test("Global leaderboard aggregates all four games and manual edits are audited"
         name: "Renamed Team",
       })
     ).status,
-    200,
+    400,
   );
   assert.equal(
     (await players[0].get("/api/leaderboard")).body.rows[0].name,
-    "Renamed Team",
+    "Integration Team",
   );
   assert.ok((await admin.get("/api/admin/dashboard")).body.submissions >= 4);
   for (const game of ["calculator", "memory", "puzzle", "detective"])
     assert.equal((await admin.get("/api/admin/games/" + game)).status, 200);
   const memoryAdmin = await admin.get("/api/admin/games/memory");
-  assert.equal(memoryAdmin.body.sessions.rows[0].teamName, "Renamed Team");
+  assert.equal(memoryAdmin.body.sessions.rows[0].teamName, "Integration Team");
   assert.match(memoryAdmin.body.sessions.rows[0].userName, /Test Student/);
 });
 
@@ -659,6 +664,213 @@ test("Admin reset invalidates an attempt and grants a retry only to its scope", 
     await models.Audit.exists({
       action: "RESET_ATTEMPT",
       entityId: String(session._id),
+    }),
+  );
+});
+
+test("Admin manages identities and rosters, while team names remain immutable and deleted users lose access", async () => {
+  const leader = supertest.agent(app),
+    member = supertest.agent(app);
+  leader.set("X-Forwarded-For", "192.0.2.105");
+  member.set("X-Forwarded-For", "192.0.2.106");
+  const registered = await call(leader, "post", "/auth/register", {
+    ...identity(5),
+    teamName: "Management Team",
+  });
+  assert.equal(registered.status, 201);
+  const code = registered.body.team.code;
+  assert.equal(
+    (
+      await call(leader, "post", "/auth/login", {
+        ...identity(5),
+        teamCode: code,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await call(member, "post", "/auth/login", {
+        ...identity(6),
+        teamCode: code,
+      })
+    ).status,
+    200,
+  );
+  const managed = await models.Team.findOne({ code });
+  const participant = await models.User.findOne({ rollNo: identity(6).rollNo });
+  assert.equal(
+    (
+      await call(member, "delete", `/admin/teams/${managed._id}`, {
+        confirm: true,
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await call(admin, "patch", `/admin/teams/${managed._id}`, {
+        name: "Forbidden rename",
+      })
+    ).status,
+    400,
+  );
+  managed.name = "Model bypass";
+  await managed.save();
+  assert.equal(
+    (await models.Team.findById(managed._id)).name,
+    "Management Team",
+  );
+  const updated = {
+    name: "Corrected Member",
+    rollNo: "CORRECTED6",
+    phoneNo: identity(6).phoneNo,
+    email: "corrected6@example.test",
+  };
+  assert.equal(
+    (
+      await call(admin, "patch", `/admin/students/${participant._id}`, {
+        ...updated,
+        email: " CORRECTED6@EXAMPLE.TEST ",
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await member.get("/api/auth/me")).status, 401);
+  assert.equal(
+    (
+      await call(member, "post", "/auth/login", {
+        ...identity(6),
+        teamCode: code,
+      })
+    ).status,
+    401,
+  );
+  assert.equal(
+    (await call(member, "post", "/auth/login", { ...updated, teamCode: code }))
+      .status,
+    200,
+  );
+  const details = await admin.get(`/api/admin/teams/${managed._id}`);
+  assert.equal(
+    (
+      await call(admin, "patch", `/admin/students/${participant._id}`, {
+        phoneNo: "9876555006",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await call(member, "post", "/auth/login", { ...updated, teamCode: code }))
+      .status,
+    401,
+  );
+  updated.phoneNo = "9876555006";
+  assert.equal(
+    (await call(member, "post", "/auth/login", { ...updated, teamCode: code }))
+      .status,
+    200,
+  );
+  assert.equal(
+    details.body.members.find((u) => u.rollNo === updated.rollNo).email,
+    updated.email,
+  );
+  assert.equal(
+    (
+      await call(admin, "patch", `/admin/teams/${managed._id}`, {
+        leaderId: String(participant._id),
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await models.User.findById(participant._id)).role,
+    "TEAM_LEADER",
+  );
+  assert.equal(
+    (
+      await call(admin, "delete", `/admin/students/${participant._id}`, {
+        confirm: true,
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call(admin, "patch", `/admin/teams/${managed._id}`, {
+        leaderId: String(managed.leaderId),
+      })
+    ).status,
+    200,
+  );
+  const attempt = await call(leader, "post", "/games/puzzle/start", {});
+  assert.equal(attempt.status, 200);
+  assert.equal(
+    (
+      await call(admin, "delete", `/admin/students/${participant._id}`, {
+        confirm: true,
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await call(
+        admin,
+        "post",
+        `/admin/games/puzzle/sessions/${attempt.body.sessionId}/reset`,
+        { reason: "Roster correction test" },
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await call(admin, "delete", `/admin/students/${participant._id}`, {
+        confirm: true,
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await models.Team.findById(managed._id)).memberIds.length, 1);
+  assert.equal((await models.User.findById(participant._id)).status, "DELETED");
+  assert.equal((await member.get("/api/auth/me")).status, 401);
+  const retry = await call(leader, "post", "/games/puzzle/start", {});
+  assert.equal(retry.status, 200);
+  assert.equal(
+    (
+      await call(admin, "delete", `/admin/teams/${managed._id}`, {
+        confirm: true,
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await models.Team.findById(managed._id)).status, "DELETED");
+  assert.equal(
+    (await models.GameSession.findById(retry.body.sessionId)).status,
+    "ABANDONED",
+  );
+  assert.equal((await models.User.findById(managed.leaderId)).teamId, null);
+  assert.equal((await leader.get("/api/auth/me")).status, 401);
+  assert.equal(
+    (
+      await call(leader, "post", "/auth/login", {
+        ...identity(5),
+        teamCode: code,
+      })
+    ).status,
+    401,
+  );
+  assert.ok(
+    await models.Audit.exists({
+      action: "DELETE_TEAM",
+      entityId: String(managed._id),
+    }),
+  );
+  assert.ok(
+    await models.Audit.exists({
+      action: "DELETE_STUDENT",
+      entityId: String(participant._id),
     }),
   );
 });

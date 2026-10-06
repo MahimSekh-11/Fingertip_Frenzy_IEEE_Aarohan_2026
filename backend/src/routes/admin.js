@@ -204,8 +204,7 @@ router.patch(
         const old = publicUser(doc);
         Object.assign(doc, b);
         await doc.save({ session: tx });
-        if (b.status === "INACTIVE")
-          await AuthSession.deleteMany({ userId: id }, { session: tx });
+        await AuthSession.deleteMany({ userId: id }, { session: tx });
         return { old, new: publicUser(doc) };
       }),
     );
@@ -225,10 +224,31 @@ router.delete(
           role: { $ne: "ADMIN" },
         }).session(tx);
         if (!doc) fail(404, "Student not found.");
-        if (doc.teamId)
-          fail(409, "Remove the student from their team before deletion.");
+        if (doc.teamId) {
+          const team = await Team.findById(doc.teamId).session(tx);
+          if (team && String(team.leaderId) === id)
+            fail(
+              409,
+              "Assign another leader or delete the team before deleting its leader.",
+            );
+          if (
+            await GameSession.exists({
+              teamId: doc.teamId,
+              status: "IN_PROGRESS",
+            }).session(tx)
+          )
+            fail(409, "Reset active attempts before removing a team member.");
+          if (team) {
+            team.memberIds = team.memberIds.filter(
+              (memberId) => String(memberId) !== id,
+            );
+            await team.save({ session: tx });
+          }
+        }
         const old = publicUser(doc);
         doc.status = "DELETED";
+        doc.teamId = null;
+        doc.role = "STUDENT";
         await doc.save({ session: tx });
         await AuthSession.deleteMany({ userId: id }, { session: tx });
         return { old, new: publicUser(doc) };
@@ -263,7 +283,7 @@ router.get(
     res.json({
       ...team,
       members: await User.find({ _id: { $in: team.memberIds } })
-        .select("name rollNo phoneNo role status")
+        .select("name rollNo phoneNo email role status")
         .lean(),
     });
   }),
@@ -274,7 +294,6 @@ router.patch(
     const id = objectId.parse(req.params.id),
       b = z
         .object({
-          name: name.optional(),
           status: z.enum(["ACTIVE", "INACTIVE"]).optional(),
           leaderId: objectId.optional(),
           memberIds: z.array(objectId).min(1).max(12).optional(),
@@ -340,7 +359,6 @@ router.patch(
         );
         doc.memberIds = members;
         doc.leaderId = leader;
-        if (b.name) doc.name = b.name;
         if (b.status) doc.status = b.status;
         if (b.regenerateCode) doc.code = teamCode();
         await doc.save({ session: tx });
@@ -366,6 +384,10 @@ router.delete(
         const old = doc.toObject();
         doc.status = "DELETED";
         await doc.save({ session: tx });
+        await AuthSession.deleteMany(
+          { userId: { $in: doc.memberIds } },
+          { session: tx },
+        );
         await User.updateMany(
           { teamId: id },
           { $set: { teamId: null, role: "STUDENT" } },

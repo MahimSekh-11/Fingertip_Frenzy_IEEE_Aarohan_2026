@@ -10,7 +10,7 @@ frontend/.env          Public event branding only
 backend/               Express/Mongoose API, models, validation and game engines
 backend/.env           Private database, origin and administrator configuration
 backend/test/          Scoring and isolated MongoDB integration tests
-api/index.js           Vercel API handler
+vercel.json            Two-service Vercel routing and builds
 scripts/               Bootstrap, indexes, migration and verification tools
 ```
 
@@ -63,7 +63,7 @@ Publish real Puzzle and Detective content before the event. See [content formats
 
 Visit `/admin/login` with the privately provisioned email/password. The portal opens `/admin/leaderboard` and contains only the leaderboard and four ordered game sections.
 
-The leaderboard provides standings, filters, exports and audited score review. Each game section controls availability, schedule, weight, attempts, game mechanics, content where relevant and scoped retries. Student, team, overview and global settings pages are not exposed in the portal navigation or routes. Protected legacy maintenance APIs remain available for deliberate migration and operational tooling.
+The leaderboard provides standings, filters, exports and audited score review. Each game section controls availability, schedule, weight, attempts, game mechanics, content where relevant and scoped retries. Team and member management is embedded in the leaderboard, keeping the five-section navigation. Administrators can edit member identities, roster, leader, code and status, or delete teams/members. Registered team names are fixed for everyone. Identity edits revoke existing sessions; participants log in again with corrected details. Transfer leadership before deleting a leader, and reset active attempts before removing a member. Deletion retains historical results and audits.
 
 ## Verification and deployment
 
