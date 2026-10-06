@@ -22,7 +22,7 @@ No deployment has been performed by the coding task. Use the repository root as 
 
 There are no internal services or service bindings in the proposed configuration. Browser requests from the static frontend use public same-origin `/api`; bindings are only available in function runtime, not Vite builds or browser code. Backend game engines are local modules. MongoDB is an external database. The original Python games and Vortex client/server folders remain preserved source references and are excluded from deployment; their engines/interfaces are already integrated in the two active services.
 
-Each service installs the root workspace lockfile with `npm ci --prefix ..` and runs its own build. Backend exports `src/app.js` with a 30-second function duration; frontend outputs `dist`. Build/runtime settings belong inside each service. Public rewrites and security headers remain at the root. See the [services configuration](https://vercel.com/docs/services/config-reference), [routing](https://vercel.com/docs/services/routing) and [runtime bindings](https://vercel.com/docs/services/bindings) documentation.
+Each service installs the shared workspace lockfile with `npm ci --include=dev --workspaces --include-workspace-root`. npm resolves the workspace root automatically; do not use `--prefix ..`, because Vercel can already execute installation from the repository root. Development dependencies are included so Vite/Tailwind are available even with NODE_ENV=production. Explicit `--workspace @aarohan/backend` and `--workspace @aarohan/frontend` build commands work from either the repository or service directory. Backend exports `src/app.js` with a 30-second function duration; frontend outputs `dist`. Build/runtime settings belong inside each service. Public rewrites and security headers remain at the root. See the [services configuration](https://vercel.com/docs/services/config-reference), [routing](https://vercel.com/docs/services/routing) and [runtime bindings](https://vercel.com/docs/services/bindings) documentation.
 
 For local shared routing, run `vercel dev` after configuring the runtime environment. `vercel dev -L` runs local-only without linking a cloud project. `frontend/dev.mjs` honors Vercel's assigned service `PORT`; plain standalone Vite otherwise chooses its own port. Set APP_ORIGIN to the shared browser URL. Never manually set a Vercel-injected binding variable if future function-to-function calls add bindings.
 
@@ -46,3 +46,10 @@ Security headers include nosniff, referrer policy, same-origin framing and camer
 - Leaderboard updates are derived from current valid results. Recalculation occurs on every request rather than maintaining a stale second leaderboard collection.
 - Database errors return a generic 503 with a request ID. The service never writes a fallback JSON file or manufactures results.
 
+
+
+## Build-log troubleshooting
+
+`Removed ... ignored files` is an informational upload-filter message. Private .env files, documentation, tests, cached builds and legacy game sources are intentionally excluded. Excluding .env.example does not remove runtime environment variables configured in Vercel.
+
+The reported failure on commit 9cf6b50 was `npm ci --prefix ..` exiting with EUSAGE. The parent-prefix override has been removed. The unused root api/ directory is excluded again, eliminating the warning that it cannot be built in services mode; backend/src/app.js remains the active Express entrypoint. Keep the Vercel project's Root Directory at the repository root so both services and the root lockfile are available. Clear conflicting dashboard build/install overrides and redeploy the commit containing these fixes.
