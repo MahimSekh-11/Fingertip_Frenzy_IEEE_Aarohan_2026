@@ -1,0 +1,10 @@
+IEEE_EVENT_MATH-main/
+Number-Memory-Game-main/
+vortex-main/
+.cache/
+.env
+.env.*
+node_modules/
+frontend/dist/
+docs/
+backend/test/
