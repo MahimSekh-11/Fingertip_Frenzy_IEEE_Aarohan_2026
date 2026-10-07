@@ -37,7 +37,7 @@ Security headers include nosniff, referrer policy, same-origin framing and camer
 - Team names cannot change after registration, including for administrators. Identity edits revoke existing sessions. Replace a leader before deleting that member, and reset active attempts before removing members. Team deletion abandons active attempts and revokes member sessions. Team/member deletion retains historical records. Score correction, invalidation and attempt reset require reasons and create audit records within the mutation transaction.
 - CSV exports are paginated (100 records per export page); pass `?page=N`. Formula-like values are escaped. There is no unbounded production export query.
 - Leaderboard updates are derived from current valid results. Recalculation occurs on every request rather than maintaining a stale second leaderboard collection.
-- Database errors return a generic 503 with a request ID. The service never writes a fallback JSON file or manufactures results.
+- Database errors return 503 with a safe diagnostic code and request ID. Vercel function logs contain the same code/ID without connection strings, passwords or participant details. The service never writes a fallback JSON file or manufactures results.
 
 
 
@@ -45,7 +45,7 @@ Security headers include nosniff, referrer policy, same-origin framing and camer
 
 `Removed ... ignored files` is an informational upload-filter message. Private .env files, documentation, tests, cached builds and legacy game sources are intentionally excluded. Excluding .env.example does not remove runtime environment variables configured in Vercel.
 
-Two deployment failures were reported: npm EUSAGE from `npm ci --prefix ..`, then “Project framework is set to services, but no services are declared” after the repository was changed to a single-project config. The current configuration restores declared backend/frontend services, removes parent-prefix installation and scopes build commands correctly. Keep the dashboard framework at Services and deploy this updated commit. The root api/ exclusion removes its services-mode warning.
+Earlier deployment failures included npm EUSAGE from `npm ci --prefix ..` and “Project framework is set to services, but no services are declared.” The current single-project configuration uses Framework Preset Other, includes api/index.js, and installs both workspaces at the root. Keep dashboard settings aligned with the current configuration described above.
 
 ## Private standings
 
@@ -54,7 +54,7 @@ Global standings, rank information and leaderboard exports require administrator
 
 ## Install-script and audit warnings
 
-The service configuration now builds successfully in the supplied Vercel log. Funding notices and .vercelignore removals are informational. Dependency audit fixes are recorded in the committed manifests and package-lock.json: Sharp >=0.35.5, and a narrow Concurrently shell-quote override at 1.11.0. Commit the lockfile with the manifests so npm ci uses patched packages.
+The supplied Vercel logs show successful compilation. Funding notices and .vercelignore removals are informational. Dependency audit fixes are recorded in the committed manifests and package-lock.json: Sharp >=0.35.5, and a narrow Concurrently shell-quote override at 1.11.0. Commit the lockfile with the manifests so npm ci uses patched packages.
 
 The esbuild@0.25.12 script is explicitly allowed only in the root package.json; npm ignores workspace-level allowScripts fields. Keep this declaration aligned with the exact locked esbuild version when updating Vite. Do not approve all scripts or suppress npm auditing to hide warnings. Sharp 0.35.5 has no install lifecycle check requiring approval. Run npm 12 install-scripts ls from the repository root to review this policy; that command does not support workspace selection. The root and per-service build commands remain unchanged.
 
@@ -63,7 +63,7 @@ The esbuild@0.25.12 script is explicitly allowed only in the root package.json; 
 
 The reported missing /vercel/path0/node_modules/cookie-parser/package.json was reproduced with Node 24 and npm 12: the backend install created cookie-parser, then the frontend install removed it. npm ci removes the existing shared node_modules tree, and an implicit current-workspace filter remains active even with --workspaces. Vercel had already traced backend dependencies before the frontend install, so final output packaging referenced a removed file.
 
-Both install commands now explicitly select --workspace @aarohan/backend and --workspace @aarohan/frontend, along with --include-workspace-root and --include=dev. Each install produces the same full dependency tree. Do not replace those explicit selectors with --workspaces alone, and do not add a parent-prefix override. The isolated reproduction verified that cookie-parser, Vite and every backend runtime dependency remained available after both service installs/builds. .vercelignore correctly excludes local node_modules, which Vercel recreates during installation; it does not exclude backend/src, manifests, lockfile or build scripts.
+The current single root install explicitly selects --workspace @aarohan/backend and --workspace @aarohan/frontend, along with --include-workspace-root and --include=dev. Do not replace those explicit selectors with --workspaces alone, and do not add a parent-prefix override. The isolated reproduction verified that cookie-parser, Vite and every backend runtime dependency remained available. .vercelignore correctly excludes local node_modules, which Vercel recreates during installation; it does not exclude backend/src, manifests, lockfile or build scripts.
 
 
 ## Full local packaging verification
@@ -71,3 +71,19 @@ Both install commands now explicitly select --workspace @aarohan/backend and --w
 The final isolated check ran Vercel CLI 62.5.0 with Node 24.19.0 and local-only project metadata, without private credentials or any deployment. It completed the root install/build and generated .vercel/output/static/index.html plus .vercel/output/functions/api/index.func/.vc-config.json (nodejs24.x, api/index.js handler). A test-only Windows shell lookup workaround was necessary for the CLI's Linux-oriented spawn environment; it is confined to .cache and is not application code or uploaded content. Cloud builds run on Linux and do not use that workaround.
 
 Commit/push all configuration changes together, then deploy that new commit. An npm allowScripts warning mentioning frontend means a deployed manifest still contains a workspace-level field; check the deployment's exact Git commit against frontend/package.json. Do not redeploy an older commit expecting local edits to apply. Cloud runtime/Atlas connectivity and HTTPS camera checks still require verification on the actual deployed origin.
+
+## Login/register return 503 after a successful build
+
+The deployed site's `/api/health` returned the application's 503 response during the October 7 investigation. This endpoint connects to MongoDB before answering, so that observation identifies database initialization as the failing step. It does not identify the exact Atlas setting. A configured MONGODB_URI can still fail because the deployment has an older environment snapshot, the URI is malformed, database credentials are wrong, the cluster is paused, or Atlas does not allow the deployment's outbound IPs.
+
+1. In Vercel, verify Production `MONGODB_URI` uses the Atlas Drivers connection string with the actual database username/password and intended database name. Paste the value without surrounding quotes. Encode reserved characters in credentials as required by MongoDB. A localhost URI points inside the Vercel function and cannot reach your computer's MongoDB.
+2. In Atlas, verify the cluster is running, the database user has read/write access to the intended database, and Network Access allows Vercel's outbound connections. Allowing only your computer's IP is insufficient. Use your chosen static egress/private networking configuration where available; do not copy your laptop IP as the deployment IP.
+3. Set Production `APP_ORIGIN=https://fingertipfrenzyieeeaarohan2026-fbq3.vercel.app` (no trailing slash) and `NODE_ENV=production`. Use the actual final origin if the domain changes. Origin mismatch returns 403; it does not explain the observed GET `/api/auth/me` database failure.
+4. Deploy the latest fixed commit again after saving environment changes. Existing deployments retain their previous environment configuration. Local .env files are intentionally not uploaded.
+5. Open `/api/health/live` to check that Express runs. Then open `/api/health/ready` to check MongoDB connection and a real database ping. Only readiness HTTP 200 with `database: connected` confirms database connectivity. The existing `/api/health` remains a readiness check.
+6. If readiness returns 503, inspect the response code and the matching `api_unavailable` function log. Do not share connection strings or passwords. `DATABASE_CONFIGURATION_MISSING` means the deployed function has no URI; `DATABASE_CONFIGURATION_INVALID` means URI parsing failed; `DATABASE_AUTH_FAILED` means MongoDB rejected authentication; `DATABASE_NETWORK_ERROR` means a driver DNS/socket error; `DATABASE_UNAVAILABLE` requires checking Atlas access, cluster availability and connection settings. `APPLICATION_ORIGIN_MISSING` means APP_ORIGIN is missing from the deployed function. A later `DATABASE_PERMISSION_DENIED` means database operations lack permission. `DATABASE_TRANSACTIONS_UNSUPPORTED` means the database does not support the transactions required by registration; use an Atlas replica set.
+7. Once readiness succeeds, verify leader registration, five-field login, refresh, logout and admin login on the final HTTPS origin. New databases need the separate administrator bootstrap described above.
+
+The connection cache now keeps only in-flight connection attempts and clears after either success or failure. Warm functions reconnect after disconnection instead of reusing a permanently resolved promise. The Node 24 regression suite verifies missing/invalid URI responses, healthy readiness, concurrent connection attempts, reconnection, actual registration/login, and score privacy; all 20 tests pass. Lint and the production build also pass. These local checks do not establish live Atlas connectivity until the new commit is deployed and readiness succeeds.
+
+References: [Atlas connection troubleshooting](https://www.mongodb.com/docs/atlas/troubleshoot-connection/) and [Vercel environment variables](https://vercel.com/docs/environment-variables).

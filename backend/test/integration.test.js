@@ -59,6 +59,52 @@ const identity = (i) => ({
   email: "student" + i + "@example.test",
 });
 let otherCode;
+test("Database failures are diagnosed safely and warm functions reconnect", async () => {
+  const uri = process.env.MONGODB_URI;
+  try {
+    await mongoose.disconnect();
+    process.env.MONGODB_URI = "";
+    assert.equal((await supertest(app).get("/api/health/live")).status, 200);
+    const unavailable = await supertest(app).get("/api/health/ready");
+    assert.equal(unavailable.status, 503);
+    assert.equal(unavailable.body.code, "DATABASE_CONFIGURATION_MISSING");
+    assert.equal(unavailable.headers["retry-after"], "10");
+    assert.ok(unavailable.body.requestId);
+    for (const path of ["/auth/login", "/auth/register"]) {
+      const response = await call(supertest(app), "post", path, {});
+      assert.equal(response.status, 503);
+      assert.equal(response.body.code, "DATABASE_CONFIGURATION_MISSING");
+    }
+    process.env.MONGODB_URI =
+      "https://secret-user:secret-password@example.test";
+    const invalid = await supertest(app).get("/api/health");
+    assert.equal(invalid.status, 503);
+    assert.equal(invalid.body.code, "DATABASE_CONFIGURATION_INVALID");
+    assert.ok(!JSON.stringify(invalid.body).includes("secret-"));
+    process.env.MONGODB_URI = uri;
+    await Promise.all([connectDB(), connectDB(), connectDB()]);
+    assert.equal((await supertest(app).get("/api/health/ready")).status, 200);
+    // Regression: the old resolved pending promise prevented this reconnect.
+    await mongoose.disconnect();
+    await Promise.all([connectDB(), connectDB()]);
+    const recovered = await supertest(app).get("/api/health");
+    assert.equal(recovered.status, 200);
+    assert.equal(recovered.body.database, "connected");
+    const configuredOrigin = process.env.APP_ORIGIN;
+    try {
+      delete process.env.APP_ORIGIN;
+      const blocked = await call(supertest(app), "post", "/auth/login", {});
+      assert.equal(blocked.status, 503);
+      assert.equal(blocked.body.code, "APPLICATION_ORIGIN_MISSING");
+      assert.ok(blocked.body.requestId);
+    } finally {
+      process.env.APP_ORIGIN = configuredOrigin;
+    }
+  } finally {
+    process.env.MONGODB_URI = uri;
+    await connectDB();
+  }
+});
 test("Leader registration creates unique team atomically; five-field login, logout and expiry", async () => {
   const registered = await call(players[0], "post", "/auth/register", {
     ...identity(0),
@@ -518,13 +564,21 @@ test("Global leaderboard aggregates all four games and manual edits are audited"
 
 test("Only admins see standings and participants receive only their own team scores", async () => {
   assert.equal((await supertest(app).get("/api/leaderboard")).status, 401);
-  assert.equal((await supertest(app).get("/api/admin/leaderboard")).status, 401);
+  assert.equal(
+    (await supertest(app).get("/api/admin/leaderboard")).status,
+    401,
+  );
   assert.equal((await supertest(app).get("/api/teams/me/score")).status, 401);
   for (const player of players.slice(0, 3)) {
     assert.equal((await player.get("/api/leaderboard")).status, 403);
     assert.equal((await player.get("/api/admin/leaderboard")).status, 403);
-    assert.equal((await player.get("/api/admin/export/leaderboard")).status, 403);
-    const own = await player.get("/api/teams/me/score?teamId=000000000000000000000000&search=Other");
+    assert.equal(
+      (await player.get("/api/admin/export/leaderboard")).status,
+      403,
+    );
+    const own = await player.get(
+      "/api/teams/me/score?teamId=000000000000000000000000&search=Other",
+    );
     assert.equal(own.status, 200);
     assert.equal(own.body.score.teamId, String(team._id));
     assert.equal(own.body.score.name, "Integration Team");

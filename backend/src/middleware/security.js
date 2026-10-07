@@ -22,9 +22,12 @@ export const requireAdmin = (req, res, next) => {
 export const checkOrigin = (req, res, next) => {
   if (!["GET", "HEAD", "OPTIONS"].includes(req.method)) {
     if (!process.env.APP_ORIGIN)
-      return res
-        .status(503)
-        .json({ message: "Application origin is not configured." });
+      return next(
+        Object.assign(new Error("Application origin is not configured."), {
+          status: 503,
+          publicCode: "APPLICATION_ORIGIN_MISSING",
+        }),
+      );
     const origin = req.headers.origin;
     if (origin !== process.env.APP_ORIGIN)
       return res

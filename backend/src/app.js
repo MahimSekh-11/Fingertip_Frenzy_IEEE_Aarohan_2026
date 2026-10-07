@@ -2,9 +2,14 @@ import express from "express";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import { randomUUID } from "node:crypto";
+import mongoose from "mongoose";
 import { connectDB } from "./config/db.js";
 import { asyncRoute } from "./services/errors.js";
-import { checkOrigin, requireAuth, requireAdmin } from "./middleware/security.js";
+import {
+  checkOrigin,
+  requireAuth,
+  requireAdmin,
+} from "./middleware/security.js";
 import auth from "./routes/auth.js";
 import teams from "./routes/teams.js";
 import games, { vortex } from "./routes/games.js";
@@ -24,6 +29,8 @@ app.use((req, res, next) => {
   res.set("X-Request-ID", randomUUID());
   next();
 });
+// Liveness is independent of database availability; readiness below is not.
+app.get("/api/health/live", (_req, res) => res.json({ status: "ok" }));
 app.use(
   "/api",
   asyncRoute(async (req, res, next) => {
@@ -45,7 +52,14 @@ app.get(
       .send(asset.data);
   }),
 );
-app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
+app.get(
+  ["/api/health", "/api/health/ready"],
+  asyncRoute(async (_req, res) => {
+    // A connected driver alone does not prove the database can answer requests.
+    await mongoose.connection.db.command({ ping: 1 });
+    res.json({ status: "ok", database: "connected" });
+  }),
+);
 app.use("/api/auth", auth);
 app.use("/api/teams", teams);
 app.use("/api/games", games);
@@ -76,6 +90,26 @@ app.use((err, req, res, _next) => {
       : err.code === 11000
         ? 409
         : err.status || 503;
+  const code =
+    status >= 500
+      ? err.publicCode ||
+        (err.code === 13
+          ? "DATABASE_PERMISSION_DENIED"
+          : err.code === 20
+            ? "DATABASE_TRANSACTIONS_UNSUPPORTED"
+            : "SERVICE_UNAVAILABLE")
+      : undefined;
+  if (status >= 500) {
+    // Keep logs useful without printing connection strings or participant data.
+    console.error(
+      JSON.stringify({
+        event: "api_unavailable",
+        requestId: res.get("X-Request-ID"),
+        code,
+      }),
+    );
+    res.set("Retry-After", "10");
+  }
   res.status(status).json({
     message:
       status === 400
@@ -85,6 +119,7 @@ app.use((err, req, res, _next) => {
           : status < 500
             ? err.message
             : "The service is temporarily unavailable. Please try again.",
+    code,
     requestId: res.get("X-Request-ID"),
   });
 });
