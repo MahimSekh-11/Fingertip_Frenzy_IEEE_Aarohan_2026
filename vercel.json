@@ -1,44 +1,20 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "backend": {
-      "root": "backend",
-      "framework": "express",
-      "entrypoint": "src/app.js",
-      "installCommand": "npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root",
-      "buildCommand": "npm run build --workspace @aarohan/backend",
-      "devCommand": "npm run dev",
-      "functions": {
-        "src/app.js": { "maxDuration": 30 }
-      }
-    },
-    "frontend": {
-      "root": "frontend",
-      "framework": "vite",
-      "installCommand": "npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root",
-      "buildCommand": "npm run build --workspace @aarohan/frontend",
-      "devCommand": "node dev.mjs",
-      "outputDirectory": "dist",
-      "rewrites": [
-        {
-          "source": "/((?!assets/|games/memory/|games/calculator/|@vite/|@react-refresh$|@fs/|@id/|src/|node_modules/|.*\\.[^/]+$).*)",
-          "destination": "/index.html"
-        }
-      ]
+  "buildCommand": "npm run build",
+  "outputDirectory": "frontend/dist",
+  "installCommand": "npm ci",
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30
     }
   },
   "rewrites": [
     {
-      "source": "/api",
-      "destination": { "service": "backend" }
+      "source": "/api/:path*",
+      "destination": "/api/index"
     },
     {
-      "source": "/api/(.*)",
-      "destination": { "service": "backend" }
-    },
-    {
-      "source": "/(.*)",
-      "destination": { "service": "frontend" }
+      "source": "/((?!games/memory/|games/calculator/|assets/).*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
