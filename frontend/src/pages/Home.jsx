@@ -271,7 +271,7 @@ export function Home() {
     </div>
   );
 }
-function IdentityFields({ leader = false, loginMode = false }) {
+function IdentityFields({ leader = false }) {
   return (
     <>
       <Field
@@ -279,7 +279,7 @@ function IdentityFields({ leader = false, loginMode = false }) {
         name="name"
         autoComplete="name"
         required
-        minLength={loginMode ? undefined : 2}
+        minLength={2}
         maxLength={60}
         placeholder="Your full name"
       />
@@ -298,9 +298,10 @@ function IdentityFields({ leader = false, loginMode = false }) {
           type="tel"
           inputMode="numeric"
           autoComplete="tel-national"
-          maxLength={20}
+          pattern="[6-9][0-9]{9}"
+          maxLength={10}
           required
-          placeholder="Mobile number · +91 accepted"
+          placeholder="10-digit mobile"
         />
       </div>
       <Field
@@ -535,7 +536,7 @@ export function Login({ admin = false }) {
               maxLength={32}
               autoCapitalize="characters"
             />
-            <IdentityFields loginMode />
+            <IdentityFields />
           </>
         )}
         <Button busy={busy} type="submit">
@@ -546,7 +547,7 @@ export function Login({ admin = false }) {
       <p className="form-help">
         {admin
           ? "Administrator accounts are privately provisioned."
-          : "Use your registered details. Spaces, letter case and a +91 phone prefix are handled automatically."}
+          : "Already joined? All five fields must match your saved participant details."}
       </p>
       <Link className="subtle-link" to={admin ? "/login" : "/admin/login"}>
         {admin ? "Participant login" : "Administrator access"}{" "}
