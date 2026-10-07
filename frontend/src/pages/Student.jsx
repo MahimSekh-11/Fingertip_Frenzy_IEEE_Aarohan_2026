@@ -111,7 +111,9 @@ export function Dashboard({ gamesOnly = false }) {
                       Weight <strong>{state?.weight}%</strong>
                     </span>
                   </div>
-                  {state?.locked && state.status === "NOT_STARTED" ? (
+                  {state?.available === false ? (
+                    <><p className="round-lock">{state.unavailableReason}</p><Button disabled className="secondary">Awaiting organizer</Button></>
+                  ) : state?.locked && state.status === "NOT_STARTED" ? (
                     <>
                       <p className="round-lock">
                         Complete the previous round to unlock.

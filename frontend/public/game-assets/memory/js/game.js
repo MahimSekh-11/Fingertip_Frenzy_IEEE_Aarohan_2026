@@ -98,7 +98,7 @@ class GameEngine {
     });
 
     // Show Stage Briefing Screen
-    document.getElementById("stage-brief-screen").style.display = "block";
+    document.getElementById("stage-brief-screen").style.display = "flex";
     document.getElementById("memorize-phase-screen").style.display = "none";
     const cvEl = document.getElementById("opencv-box-screen");
     if (cvEl) {
@@ -127,10 +127,17 @@ class GameEngine {
     this._countdownPending = true;
     if (button) button.disabled = true;
     try {
+      button.textContent = "Preparing camera…";
+      window.visionEngine.onFrameUpdate = null;
+      window.visionEngine.onDigitLocked = null;
+      const ready = await window.visionEngine.init(document.getElementById("webcam-video"), document.getElementById("vision-canvas"));
+      if (ready) await window.visionEngine.startCamera();
+      button.textContent = "Starting…";
       await window.platformApi("/games/memory/stage/countdown", {});
     } catch (e) {
       this._countdownPending = false;
       if (button) button.disabled = false;
+      if (button) button.textContent = "Start memorization";
       window.app.showToast(e.message, "error");
       return;
     }
@@ -298,10 +305,8 @@ class GameEngine {
     if (lockBtn) {
       lockBtn.onclick = () => {
         if (!this.isStepLocked) {
-          const d =
-            window.visionEngine.currentDigit !== null
-              ? window.visionEngine.currentDigit
-              : 0;
+          const d = window.visionEngine.currentDigit;
+          if (d === null) { window.app.showToast("No digit detected. Show a hand or use keyboard keys 0–9.", "info"); return; }
           this.handleDigitLocked(d, d === this.expectedDigit);
         }
       };
@@ -311,7 +316,7 @@ class GameEngine {
     if (this._keyListener)
       document.removeEventListener("keydown", this._keyListener);
     this._keyListener = (e) => {
-      if (e.key >= "1" && e.key <= "9" && !this.isStepLocked) {
+      if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.isStepLocked) {
         const val = parseInt(e.key);
         this.handleDigitLocked(val, val === this.expectedDigit);
       }
@@ -740,7 +745,7 @@ class GameEngine {
       cvEl.classList.remove("active");
       cvEl.style.display = "none";
     }
-    document.getElementById("stage-review-screen").style.display = "block";
+    document.getElementById("stage-review-screen").style.display = "flex";
 
     // Judging criteria: Count of right numbers in matching positions = points
     let stageScore = 0;
@@ -844,7 +849,7 @@ class GameEngine {
       cvEl.style.display = "none";
     }
     document.getElementById("stage-review-screen").style.display = "none";
-    document.getElementById("final-results-screen").style.display = "block";
+    document.getElementById("final-results-screen").style.display = "flex";
 
     document.getElementById("final-player-name").textContent =
       this.participant.name;

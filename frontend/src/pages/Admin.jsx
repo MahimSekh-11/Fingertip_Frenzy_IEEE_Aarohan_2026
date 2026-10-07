@@ -416,7 +416,7 @@ export function AdminGame() {
     [edit, setEdit] = useState(null),
     [remove, setRemove] = useState(null);
   const r = useResource(
-    () => request(`/admin/games/${gameId}?page=${page}`),
+    () => request(`/admin/games/${gameId}?page=${page}`).then(data => ({ ...data, gameId })),
     [gameId, page],
   );
   useEffect(() => {
@@ -441,7 +441,7 @@ export function AdminGame() {
       setBusy(false);
     }
   };
-  const d = r.data;
+  const d = r.data?.gameId === gameId ? r.data : null;
   return (
     <Shell
       admin

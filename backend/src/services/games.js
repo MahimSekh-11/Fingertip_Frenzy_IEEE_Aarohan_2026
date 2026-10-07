@@ -9,12 +9,15 @@ import {
 } from "../game-services/calculator.js";
 import { fail } from "./errors.js";
 export function assertAvailable(config, now = Date.now()) {
-  if (
-    !config.enabled ||
-    (config.startAt && now < +new Date(config.startAt)) ||
-    (config.endAt && now > +new Date(config.endAt))
-  )
-    fail(403, "This game is currently unavailable.");
+  const reason = availabilityReason(config, now);
+  if (reason) fail(403, reason);
+}
+export function availabilityReason(config, now = Date.now()) {
+  if (!config.enabled) return "The organizer has paused this game. Please contact the event desk.";
+  if ([config.startAt, config.endAt].some(value => value && !Number.isFinite(+new Date(value)))) return "The game schedule needs an organizer correction.";
+  if (config.startAt && now < +new Date(config.startAt)) return `This game opens at ${new Date(config.startAt).toISOString()}.`;
+  if (config.endAt && now > +new Date(config.endAt)) return "This game's entry window has closed. Please contact the event desk.";
+  return null;
 }
 export const scopeFor = (game, user) =>
   user.role === "ADMIN"

@@ -1002,6 +1002,28 @@ test("Reset attempts return usable game states and Detective rejects blank optio
   assert.equal((await call(admin, "post", "/admin/games/detective/content", { title: "Invalid blank option", published: false, order: 0, data: content.data })).status, 400);
 });
 
+test("Admin Memory controls fill partial settings and student cards agree with entry restrictions", async () => {
+  const previous = await models.GameSetting.findOne({ gameId: "memory" }).lean();
+  try {
+    await models.GameSetting.updateOne({ gameId: "memory" }, { $set: { config: { enabled: false, stages: { stage1: { numbersCount: 3 } } } } }, { upsert: true });
+    const management = await admin.get("/api/admin/games/memory");
+    assert.equal(management.status, 200);
+    assert.equal(management.body.settings.enabled, false);
+    assert.equal(management.body.settings.stages.stage1.numbersCount, 3);
+    assert.equal(management.body.settings.stages.stage3.numbersCount, 9);
+    const catalog = await players[0].get("/api/games");
+    const memory = catalog.body.games.find(game => game.id === "memory");
+    assert.equal(memory.available, false);
+    assert.match(memory.unavailableReason, /paused/);
+    const entry = await players[0].get("/api/games/memory/state");
+    assert.equal(entry.status, 403);
+    assert.equal(entry.body.message, memory.unavailableReason);
+  } finally {
+    if (previous) await models.GameSetting.updateOne({ gameId: "memory" }, { $set: { config: previous.config } });
+    else await models.GameSetting.deleteOne({ gameId: "memory" });
+  }
+});
+
 // Keep the sandbox regression at the end: it temporarily disables event games.
 test("Admins can complete all games privately while competition gates and scores stay intact", async () => {
   const resultCount = await models.Result.countDocuments();

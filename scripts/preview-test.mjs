@@ -38,6 +38,13 @@ await models.User.create({
   role: "ADMIN",
   passwordHash: hashPassword("preview-only-password-123"),
 });
+if (process.env.FF_TEST_STUDENTS === "1") {
+  const students = await models.User.create(Array.from({ length: 3 }, (_, i) => ({ name: i ? `UI Member ${i}` : "UI Leader", rollNo: `UISTUDENT${i}`, phoneNo: `987654321${i}`, email: `ui-student${i}@example.test`, role: i ? "STUDENT" : "TEAM_LEADER" })));
+  const team = await models.Team.create({ name: "Viewport QA Team", code: "FF-ABCDEF123456", leaderId: students[0]._id, memberIds: students.map(student => student._id) });
+  await models.User.updateMany({ _id: { $in: students.map(student => student._id) } }, { $set: { teamId: team._id } });
+  // Disposable predecessor results permit entry QA without replaying every round.
+  await models.Result.create(["puzzle", "detective", "calculator"].map(gameId => ({ sessionId: new mongoose.Types.ObjectId(), teamId: team._id, gameId, score: 0, maximum: 100, completionTime: 1, attempt: 1, completedAt: new Date() })));
+}
 const memory = structuredClone(defaults.memory);
 for (const stage of Object.values(memory.stages)) {
   stage.numbersCount = 2;

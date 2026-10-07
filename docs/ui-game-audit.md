@@ -22,3 +22,22 @@
 ## Remaining external verification
 
 Push these changes and redeploy to publish them. Production Vercel/Atlas connectivity was not changed or revalidated during this UI audit. Camera permissions, physical gesture recognition and multiple real participant devices require device testing; automated tests verify the server state and score rules.
+
+## Game entrance and viewport follow-up
+
+- Saved partial game settings now inherit missing defaults. Memory controls receive all three stages; invalid date fields render safely. Admin navigation discards settings from the previous game, and a page boundary provides a recovery screen for unexpected rendering failures.
+- Game cards and game entry use the same availability rules and show paused, future, closed or invalid-schedule reasons. Organizer restrictions and required round order remain enforced. Partial saved settings no longer accidentally mark otherwise enabled games unavailable.
+- Embedded assets moved from `frontend/public/games` to `frontend/public/game-assets` to avoid collisions with SPA routes. Iframe paths and Vercel rewrites/CSP use the new path together.
+- Game pages use a viewport-height arena layout. Puzzle history stays beside the board on desktop and beneath it on mobile. Detective answers use keyboard-accessible radio inputs. Calculator and Memory place camera input at the right, with detected output nearby. Long evidence, logs and history may scroll inside their panels; the arena page itself does not scroll at the tested sizes.
+- Calculator starts its camera preview without waiting for game state or the hand model. Memory prepares its camera before starting the server countdown and reuses the hand engine across stages. Streams stop on leaving a game. Missing hand input no longer submits an accidental zero. Model/device/permission failures have recovery messages; initial permission prompts and model downloads still depend on the device and connection.
+- Interrupted Memory attempts show only their recovery message, without a misleading default stage briefing. The organizer must reset interrupted competition attempts through the existing controls.
+
+Follow-up verification: all 28 Node 24 tests passed, including a partial Memory configuration/admin-controls/student-entry regression. Lint and production build passed. Browser checks used only a disposable MongoDB replica set, test identities and localhost servers: student entry into all four games, Memory controls switching/saving, desktop/laptop/mobile Puzzle and Detective layouts, and camera preview/Memory preparation. At 390×844, Puzzle controls end at 721px and history at 837px, with document scroll height 844px; Calculator's iframe height and scroll height both measure 714px. Laptop Puzzle proof: `student-puzzle-fit.jpg`. A fresh valid Memory control page did not reproduce the reported production crash; the changes address observed stale/partial-settings failure paths rather than an unavailable production stack trace.
+
+## Dedicated full-screen arena layout
+
+All four game routes now replace the dashboard sidebar/footer with a compact arena bar containing the round, game title, participant identity, exit link and optional browser full-screen toggle. Returning to games restores the normal workspace. Native full-screen entry and exit were verified in the local browser. Admin practice tools are collapsible; game rules, saved scores and access restrictions are unchanged.
+
+Puzzle uses a larger board beside its tile tray/actions, with history in a separate panel; mobile stacks the panels. Detective presents evidence and answers in separate columns on desktop. Calculator and Memory share deeper navy panels, clear cyan accents, camera/output sections and visible focus states. Calculator reserves space above its mobile content for the camera; Memory briefing/result cards use flex layout for centered content.
+
+Browser verification: 1440×900, 1280×720 and 390×844. Puzzle page scroll height matches the viewport; at mobile size, actions end at 750px and history at 836px. Detective mobile submit ends at 715px. Calculator camera is top-right at desktop/mobile sizes, and iframe height equals scroll height (626px/769px respectively). Memory mobile start is visible at 597px inside its 769px frame. Screenshots: `fullscreen-memory-arena.jpg`, `fullscreen-detective-arena.jpg`. Lint, embedded Memory syntax check and production build passed. QA used only disposable local fixtures; production deployment is still required.

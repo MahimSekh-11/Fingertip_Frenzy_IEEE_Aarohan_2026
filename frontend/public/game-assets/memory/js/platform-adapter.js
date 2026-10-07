@@ -32,6 +32,8 @@ window.app = {
   },
 };
 addEventListener("DOMContentLoaded", async () => {
+  const camera = document.querySelector(".gesture-center-panel .camera-feed-card");
+  if (camera) document.querySelector(".gesture-right-panel").prepend(camera);
   try {
     const { user } = await window.platformApi("/auth/me");
     const team = user.role === "ADMIN"
@@ -71,10 +73,12 @@ addEventListener("DOMContentLoaded", async () => {
       await window.platformApi("/games/memory/start", {});
     await window.gameEngine.startStage(state.stage + 1);
   } catch (error) {
+    window.visionEngine?.stopCamera();
+    document.querySelectorAll(".view-section").forEach((view) => view.classList.remove("active"));
     window.app.showToast(error.message, "error");
     const el = document.createElement("div");
     el.style.cssText =
-      "margin:50px;padding:25px;background:#142238;color:white;border-radius:12px";
+      "margin:16px;padding:20px;background:#142238;color:white;border-radius:12px";
     const text = document.createElement("p");
     text.textContent = error.message;
     const link = document.createElement("a");
@@ -85,3 +89,4 @@ addEventListener("DOMContentLoaded", async () => {
     document.body.prepend(el);
   }
 });
+addEventListener("pagehide", () => window.visionEngine?.stopCamera());

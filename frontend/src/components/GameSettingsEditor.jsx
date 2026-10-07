@@ -28,12 +28,13 @@ const labels = {
 function localDate(value) {
   if (!value) return "";
   const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return "";
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     .toISOString()
     .slice(0, 16);
 }
 export function GameSettingsEditor({ value, busy, onSave }) {
-  const [config, setConfig] = useState(structuredClone(value)),
+  const [config, setConfig] = useState(structuredClone(value || {})),
     [error, setError] = useState("");
   const update = (path, value) => {
     setConfig((old) => {
@@ -45,7 +46,7 @@ export function GameSettingsEditor({ value, busy, onSave }) {
     });
   };
   function render(object, path = []) {
-    return Object.entries(object).map(([key, v]) => {
+    return Object.entries(object || {}).map(([key, v]) => {
       const p = [...path, key],
         label = labels[key] || key;
       if (v && typeof v === "object" && !Array.isArray(v))

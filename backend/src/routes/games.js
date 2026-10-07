@@ -14,6 +14,7 @@ import {
   calculatorState,
   scopeFor,
   roundLock,
+  availabilityReason,
 } from "../services/games.js";
 import {
   beginStage,
@@ -41,6 +42,8 @@ router.get(
           id,
           name: names[id],
           enabled: config.enabled,
+          available: !availabilityReason(config),
+          unavailableReason: availabilityReason(config),
           weight: config.weight,
           locked: Boolean(await roundLock(id, req.user)),
           status: doc?.status || "NOT_STARTED",

@@ -7,6 +7,7 @@ import { Dashboard, TeamPage, Profile } from "./pages/Student";
 import { Leaderboard } from "./pages/Leaderboard";
 import { AdminGame } from "./pages/Admin";
 import { EmbeddedGame } from "./pages/EmbeddedGame";
+import { PageBoundary } from "./components/PageBoundary";
 const Puzzle = lazy(() =>
   import("./pages/PuzzleGamePage").then((m) => ({ default: m.PuzzleGamePage })),
 );
@@ -21,6 +22,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Suspense fallback={<Loading />}>
+          <PageBoundary>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/register" element={<Register />} />
@@ -65,6 +67,7 @@ export default function App() {
             />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </PageBoundary>
         </Suspense>
       </AuthProvider>
     </BrowserRouter>

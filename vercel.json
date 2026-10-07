@@ -15,7 +15,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/((?!games/memory/|games/calculator/|assets/|.*\\.[^/]+$).*)",
+      "source": "/((?!game-assets/|assets/|.*\\.[^/]+$).*)",
       "destination": "/index.html"
     }
   ],
@@ -42,7 +42,7 @@
       ]
     },
     {
-      "source": "/((?!games/memory/|games/calculator/|api/).*)",
+      "source": "/((?!game-assets/|api/).*)",
       "headers": [
         {
           "key": "Content-Security-Policy",
@@ -51,7 +51,7 @@
       ]
     },
     {
-      "source": "/games/:game/:path*",
+      "source": "/game-assets/:game/:path*",
       "headers": [
         {
           "key": "Content-Security-Policy",

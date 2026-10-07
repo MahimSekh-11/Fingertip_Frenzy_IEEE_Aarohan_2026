@@ -312,7 +312,7 @@ export function DetectiveGamePage() {
 
   return (
     <AppShell>
-      <div style={{ maxWidth: 1100, margin: "0 auto", paddingBottom: 60 }}>
+      <div className="detective-arena" style={{ maxWidth: 1100, margin: "0 auto" }}>
         {/* Header HUD Bar */}
         <div
           style={{
@@ -781,7 +781,7 @@ export function DetectiveGamePage() {
                     return (
                       <label
                         key={idx}
-                        onClick={() => setSelectedOption(idx)}
+                        className="detective-option"
                         style={{
                           display: "flex",
                           alignItems: "center",
@@ -796,6 +796,7 @@ export function DetectiveGamePage() {
                           transition: "all 0.15s ease",
                         }}
                       >
+                        <input className="arena-radio" type="radio" name="investigation-answer" aria-label={opt} checked={isSelected} disabled={submitting} onChange={() => setSelectedOption(idx)} />
                         <span
                           style={{
                             width: 26,

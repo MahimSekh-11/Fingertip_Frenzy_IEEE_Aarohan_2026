@@ -37,6 +37,7 @@ class VisionEngine {
     this.videoElement = videoEl;
     this.canvasElement = canvasEl;
     this.canvasCtx = canvasEl.getContext('2d');
+    if (this.hands) return true;
 
     // Load MediaPipe Hands
     if (!window.Hands) {
@@ -60,7 +61,7 @@ class VisionEngine {
   }
 
   async startCamera() {
-    if (this.isRunning) return;
+    if (this.isRunning) return true;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -73,12 +74,19 @@ class VisionEngine {
       this.canvasElement.height = this.videoElement.videoHeight || 480;
 
       this.isRunning = true;
+      await this.hands.send({ image: this.videoElement });
 
       // Processing loop via requestAnimationFrame
       const loop = async () => {
         if (!this.isRunning) return;
         if (this.videoElement.readyState >= 2) {
-          await this.hands.send({ image: this.videoElement });
+          try {
+            await this.hands.send({ image: this.videoElement });
+          } catch (err) {
+            this.stopCamera();
+            window.app.showToast('Hand tracking stopped. Continue with keyboard digits or reload the arena.', 'info');
+            return;
+          }
         }
         requestAnimationFrame(loop);
       };
@@ -86,7 +94,8 @@ class VisionEngine {
       return true;
     } catch (err) {
       console.error('Camera access error:', err);
-      alert('Camera access denied or unavailable. Please allow camera permissions to play with hand gestures.');
+      this.stopCamera();
+      window.app.showToast('Camera unavailable. Allow camera access in browser settings. Keyboard input is available.', 'info');
       return false;
     }
   }

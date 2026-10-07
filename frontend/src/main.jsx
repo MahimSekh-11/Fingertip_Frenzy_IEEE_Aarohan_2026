@@ -4,6 +4,7 @@ import App from "./App";
 import "./styles.css";
 import "./vortex.css";
 import "./frenzy.css";
+import "./arena.css";
 createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <App />

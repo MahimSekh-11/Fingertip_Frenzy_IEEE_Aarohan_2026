@@ -46,7 +46,8 @@ export function AdminTestControls({ game }) {
       );
     });
   return (
-    <section className="admin-test-panel" aria-label="Administrator game test">
+    <details className="admin-test-panel arena-practice">
+      <summary>Practice controls <span>Private attempt · scores excluded</span></summary>
       <div className="table-toolbar">
         <div>
           <strong>Admin test mode</strong>
@@ -124,6 +125,6 @@ export function AdminTestControls({ game }) {
           </div>
         </div>
       )}
-    </section>
+    </details>
   );
 }

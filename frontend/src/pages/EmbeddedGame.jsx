@@ -33,21 +33,11 @@ export function EmbeddedGame() {
         key={gameId}
         className="game-frame"
         title={catalog.find((g) => g.id === gameId).name}
-        src={`/games/${gameId}/index.html`}
+        src={`/game-assets/${gameId}/index.html`}
         allow="camera 'self'"
         sandbox="allow-scripts allow-same-origin allow-top-navigation-by-user-activation"
         onLoad={() => setLoaded(true)}
       />
-      <Button
-        className="secondary"
-        onClick={() =>
-          navigate(
-            user?.role === "ADMIN" ? `/admin/games/${gameId}` : "/dashboard",
-          )
-        }
-      >
-        Return to {user?.role === "ADMIN" ? "game settings" : "dashboard"}
-      </Button>
     </Shell>
   );
 }
