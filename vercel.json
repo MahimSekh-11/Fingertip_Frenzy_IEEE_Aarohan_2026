@@ -5,7 +5,7 @@
       "root": "backend",
       "framework": "express",
       "entrypoint": "src/app.js",
-      "installCommand": "npm ci --include=dev --workspaces --include-workspace-root",
+      "installCommand": "npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root",
       "buildCommand": "npm run build --workspace @aarohan/backend",
       "devCommand": "npm run dev",
       "functions": {
@@ -15,7 +15,7 @@
     "frontend": {
       "root": "frontend",
       "framework": "vite",
-      "installCommand": "npm ci --include=dev --workspaces --include-workspace-root",
+      "installCommand": "npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root",
       "buildCommand": "npm run build --workspace @aarohan/frontend",
       "devCommand": "node dev.mjs",
       "outputDirectory": "dist",

@@ -24,7 +24,7 @@ Keep the Vercel project Framework Preset set to **Services** and Root Directory 
 
 A project configured as Services must have a nonempty `services` object. Do not replace this file with a single-project config while leaving the Vercel framework set to Services; that mismatch causes the reported fatal error.
 
-Each service installs with `npm ci --include=dev --workspaces --include-workspace-root`. npm discovers the root workspace lockfile; never use `--prefix ..`, since Vercel may already run installation at the repository root. Explicit named-workspace build commands select only the intended service. Frontend development honors Vercel's assigned PORT via dev.mjs. Build/runtime keys belong inside each service; only routing and headers stay at the top level.
+Each service installs with `npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root`. npm discovers the root workspace lockfile; never use `--prefix ..`, since Vercel may already run installation at the repository root. Explicit named-workspace build commands select only the intended service. Frontend development honors Vercel's assigned PORT via dev.mjs. Build/runtime keys belong inside each service; only routing and headers stay at the top level.
 
 There are no internal services or bindings. Browser requests use public same-origin /api, backend game engines are local imports, and MongoDB is external. Original game folders are preserved reference sources rather than additional services. The unused root api/ handler is excluded by .vercelignore; the backend service uses backend/src/app.js directly.
 
@@ -63,4 +63,11 @@ Global standings, rank information and leaderboard exports require administrator
 
 The service configuration now builds successfully in the supplied Vercel log. Funding notices and .vercelignore removals are informational. Dependency audit fixes are recorded in the committed manifests and package-lock.json: Sharp >=0.35.5, and a narrow Concurrently shell-quote override at 1.11.0. Commit the lockfile with the manifests so npm ci uses patched packages.
 
-The esbuild@0.25.12 script is explicitly allowed in the root and frontend package.json. Keep this declaration aligned with the exact locked esbuild version when updating Vite. Do not approve all scripts or suppress npm auditing to hide warnings. Sharp 0.35.5 has no install lifecycle check requiring approval. Run npm 12 install-scripts ls from the repository root to review this policy; that command does not support workspace selection. The root and per-service build commands remain unchanged.
+The esbuild@0.25.12 script is explicitly allowed only in the root package.json; npm ignores workspace-level allowScripts fields. Keep this declaration aligned with the exact locked esbuild version when updating Vite. Do not approve all scripts or suppress npm auditing to hide warnings. Sharp 0.35.5 has no install lifecycle check requiring approval. Run npm 12 install-scripts ls from the repository root to review this policy; that command does not support workspace selection. The root and per-service build commands remain unchanged.
+
+
+## ENOENT while deploying outputs
+
+The reported missing /vercel/path0/node_modules/cookie-parser/package.json was reproduced with Node 24 and npm 12: the backend install created cookie-parser, then the frontend install removed it. npm ci removes the existing shared node_modules tree, and an implicit current-workspace filter remains active even with --workspaces. Vercel had already traced backend dependencies before the frontend install, so final output packaging referenced a removed file.
+
+Both install commands now explicitly select --workspace @aarohan/backend and --workspace @aarohan/frontend, along with --include-workspace-root and --include=dev. Each install produces the same full dependency tree. Do not replace those explicit selectors with --workspaces alone, and do not add a parent-prefix override. The isolated reproduction verified that cookie-parser, Vite and every backend runtime dependency remained available after both service installs/builds. .vercelignore correctly excludes local node_modules, which Vercel recreates during installation; it does not exclude backend/src, manifests, lockfile or build scripts.

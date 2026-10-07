@@ -107,3 +107,12 @@ The supplied log for commit 87b2c74 showed both services building successfully a
 Declared esbuild@0.25.12 install-script permission in the root and frontend manifests. Sharp 0.35.5 no longer declares the old install check, so no Sharp script permission is required. No blanket approval or warning suppression was added.
 
 Verification: npm audit reported zero vulnerabilities; build passed (1,610 modules plus backend syntax); lint passed with zero warnings/errors; all 19 tests passed, including Sharp uploads, private team scores and admin-only standings. npm 12.2.0 install-scripts ls reported no packages with unreviewed scripts. A successful cloud deployment after these changes has not been verified; the supplied log stops before the final deployment status.
+
+
+## Final-output dependency preservation regression
+
+For the supplied deployment 90509f1 failure (missing cookie-parser/package.json), used an isolated source copy under .cache, bundled Node 24.19.0 and npm 12.2.0. Old backend service installation created cookie-parser; old frontend installation removed it. This reproduced the exact missing dependency without touching working dependencies or private environment files.
+
+Changed both service installers to explicitly select both named workspaces. Verified cookie-parser remained after backend and frontend installations, Vite remained, zero audit vulnerabilities and no pending/ignored script-policy warning. Removed the ignored frontend allowScripts field; the reviewed pinned esbuild permission remains in root package.json.
+
+Both exact service build commands passed in this isolated copy. After both installs/builds, every declared backend dependency resolved, and importing backend/src/app.js yielded the expected Express function. The latest prior full test run passed 19 checks; no application code changed in this regression repair. The corrected cloud deployment itself remains unverified until the new commit is deployed.
