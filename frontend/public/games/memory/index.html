@@ -276,6 +276,12 @@
             </div>
           </div>
 
+          <label for="memory-input-mode">Choose your input method</label>
+          <select id="memory-input-mode" class="form-control" style="max-width:360px;margin:12px auto">
+            <option value="camera">Camera hand gestures</option>
+            <option value="manual">Number buttons or keyboard</option>
+          </select>
+          <p style="color:var(--text-muted)">Camera setup finishes before your timer starts. You can use number buttons if your webcam is unavailable.</p>
           <button class="btn btn-primary btn-lg" onclick="window.gameEngine.beginCountdown()">
             I Am Ready! Start Memorization 🚀
           </button>
@@ -404,7 +410,7 @@
                 <div class="camera-feed-header">
                   <div class="camera-feed-title">
                     <span class="status-dot"></span>
-                    <span>OPENCV CAMERA VIEW</span>
+                    <span>CAMERA INPUT · LIVE HAND VIEW</span>
                   </div>
                   <span class="camera-status-pill" id="camera-hand-status">Waiting for hand</span>
                 </div>
@@ -418,7 +424,7 @@
                 </div>
 
                 <div class="camera-feed-footer">
-                  <span>1-5 = One Hand &middot; 6-9 = Two Hands &middot; Live OpenCV AI Tracker</span>
+                  <span>0 = fist &middot; 1–5 = one hand &middot; 6–9 = two hands. Video stays on this device.</span>
                 </div>
               </div>
 
@@ -437,7 +443,7 @@
 
               <!-- Detected Digit Card with 1.0s Continuous Hold Confirmation -->
               <div class="central-detected-card" id="central-detected-card">
-                <div class="detected-badge-label">MODEL DETECTED DIGIT</div>
+                <div class="detected-badge-label">DETECTED OUTPUT · YOUR DIGIT</div>
 
                 <div class="detected-display-wrapper" id="detected-display-wrapper">
                   <div class="central-giant-digit" id="central-detected-digit">--</div>
@@ -470,11 +476,14 @@
               <!-- Bottom Fallback & Controls -->
               <div class="right-fallback-card">
                 <div class="central-fallback-tip">
-                  💡 <strong>Tip:</strong> Press keyboard keys <strong>1-9</strong> for immediate manual fallback.
+                  <strong>Camera unavailable?</strong> Choose a digit below or press a key <strong>0–9</strong>. Each choice submits an answer.
                 </div>
                 <button class="btn btn-secondary btn-sm" id="btn-manual-lock">
                   Lock Current Digit
                 </button>
+                <div class="manual-digit-pad" role="group" aria-label="Submit a number">
+                  <button type="button" data-manual-digit="0">0</button><button type="button" data-manual-digit="1">1</button><button type="button" data-manual-digit="2">2</button><button type="button" data-manual-digit="3">3</button><button type="button" data-manual-digit="4">4</button><button type="button" data-manual-digit="5">5</button><button type="button" data-manual-digit="6">6</button><button type="button" data-manual-digit="7">7</button><button type="button" data-manual-digit="8">8</button><button type="button" data-manual-digit="9">9</button>
+                </div>
               </div>
 
             </aside>

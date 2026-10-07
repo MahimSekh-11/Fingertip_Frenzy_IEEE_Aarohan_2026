@@ -1152,6 +1152,8 @@
 }
 
 /* Shared form and arena refinements. Navigation styles apply only to the shell sidebar. */
+.platform button,.platform .button{touch-action:manipulation}
+.platform button:active:not(:disabled),.platform .button:active{filter:brightness(1.12)}
 .detective-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; }
 .detective-layout > * { min-width: 0; }
 .detective-layout button { white-space: normal; overflow-wrap: anywhere; }

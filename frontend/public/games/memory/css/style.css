@@ -2,6 +2,10 @@
    (DS) OpenCV Memory Game - AAROHAN 2026 Design System & Aesthetics
    ========================================================================== */
 
+.manual-digit-pad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:16px}
+.manual-digit-pad button{min-height:44px;border:1px solid #405575;border-radius:12px;background:#14243f;color:#e8f2ff;font:700 18px/1 system-ui;cursor:pointer;touch-action:manipulation}
+.manual-digit-pad button:active{background:#25476b}.manual-digit-pad button:focus-visible{outline:2px solid #59d9dc;outline-offset:2px}
+
 :root {
   --bg-main: #090d16;
   --bg-card: rgba(18, 24, 38, 0.75);
@@ -2808,4 +2812,9 @@ header.app-header {
     font-size: 0.65rem;
   }
 }
+
+.gesture-arena-container>*{min-width:0}
+@media(max-width:1100px){.gesture-arena-container{grid-template-columns:minmax(0,1fr)!important}.camera-feed-header{flex-wrap:wrap;gap:8px}.gesture-left-panel,.gesture-center-panel,.gesture-right-panel{width:auto;max-width:100%}}
+@media(min-width:700px) and (max-width:1100px){.gesture-arena-container{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)!important}.gesture-left-panel{grid-column:1/-1;order:3}.gesture-center-panel{order:1}.gesture-right-panel{order:2}}
+@media(min-width:700px) and (max-width:1100px){.gesture-arena-container{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)!important}.gesture-left-panel{grid-column:1/-1;order:3}.gesture-center-panel{order:1}.gesture-right-panel{order:2}}
 
