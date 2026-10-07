@@ -10,7 +10,7 @@ frontend/.env          Public event branding only
 backend/               Express/Mongoose API, models, validation and game engines
 backend/.env           Private database, origin and administrator configuration
 backend/test/          Scoring and isolated MongoDB integration tests
-vercel.json            Two-service Vercel routing and builds
+vercel.json            Static frontend and Express API deployment
 scripts/               Bootstrap, indexes, migration and verification tools
 ```
 
@@ -78,3 +78,8 @@ Tests use an isolated real MongoDB replica set and cover leader registration, fi
 See [verification](docs/verification.md), [implementation report](docs/implementation-report.md), [Vercel/Atlas deployment](docs/deployment.md) and [migration safety](docs/migration.md). Existing imported participants need a complete matching name, roll, phone, email and team association to use the new login flow.
 
 Production deployment and physical camera recognition require a real-device check. Cameras need HTTPS or loopback and user permission; MediaPipe assets require network access. A build confirms compilation, not production database connectivity or deployment.
+
+
+## Score privacy
+
+Only administrators can view the full leaderboard, rankings, other team scores and leaderboard exports. Participants see their own team's four game scores and weighted total on the dashboard and My team page, refreshed every 30 seconds. `/api/teams/me/score` selects the active roster from the authenticated user; URL parameters cannot select another team. Both the old `/api/leaderboard` alias and `/api/admin/leaderboard` require administrator authentication. Public and participant navigation no longer exposes standings.

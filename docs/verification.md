@@ -82,3 +82,12 @@ Verified using official Vercel CLI 62.5.0 with bundled Node 24.19.0 and `vercel 
 - Latest automated run: 18 tests passed, zero failures/skips. Production deployment, cloud Atlas connectivity, deployed security headers and physical cameras remain unverified.
 
 The active call graph needs no service bindings: frontend browser code calls public /api; backend engines are local imports, and MongoDB is an external database. The four suggested legacy services are excluded pending user confirmation of the proposed service layout.
+
+
+## Current deployment-log and score-privacy repair
+
+The supplied deployment error was npm EUSAGE from `npm ci --prefix ..`, plus an informational warning about the unused root api/ folder in services mode. An isolated source copy without .env, docs, tests or existing dependencies successfully installed from both service directories after removing the parent-prefix override. The isolated backend build and initial frontend build passed. During repair, new commits changed the actual repository back to a single-project Vercel layout with npm ci, root build, frontend/dist and api/index.js; the latest single-project layout is retained unless the user selects services. Its install command explicitly includes build dependencies, and the SPA fallback excludes file extensions.
+
+Score privacy now requires administrator authentication for all global standings/export paths and derives `/api/teams/me/score` from active authenticated membership. The participant dashboard/team page render only that scoped result. A new integration check covers anonymous and participant denial, own-team scores, ignored query manipulation, separate teams, missing rank data and admin filters. Previous aggregation tests now use administrator cookies.
+
+These latest privacy edits have not been executed through tests/build/lint. Automatic approval review rejected the final verification command because the account usage limit prevented review; it explicitly reported no determination that the command was unsafe. The working checkout dependencies were restored successfully after a Windows native-file lock during installation. A new cloud deployment has not been verified.

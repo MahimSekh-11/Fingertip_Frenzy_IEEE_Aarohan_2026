@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Trophy, Download } from "lucide-react";
-import { Link } from "react-router-dom";
-import { Shell, Brand } from "../components/Shell";
+import { Shell } from "../components/Shell";
 import { useAuth } from "../components/Auth";
 import {
   Card,
@@ -30,13 +29,13 @@ export function Leaderboard({ admin = false }) {
     }, 300);
     return () => clearTimeout(t);
   }, [search]);
-  const path = `/leaderboard?page=${page}&search=${encodeURIComponent(query)}${filter ? "&gameId=" + filter : ""}${completed ? "&completed=true" : ""}`,
+  const path = `/admin/leaderboard?page=${page}&search=${encodeURIComponent(query)}${filter ? "&gameId=" + filter : ""}${completed ? "&completed=true" : ""}`,
     r = useResource(() => request(path), [path]);
   useEffect(() => {
     const id = setInterval(r.reload, 30000);
     return () => clearInterval(id);
   }, []);
-  const podium = useResource(() => request("/leaderboard?limit=3"), []);
+  const podium = useResource(() => request("/admin/leaderboard?limit=3"), []);
   const body = (
     <>
       <div className="podium">
@@ -207,27 +206,13 @@ export function Leaderboard({ admin = false }) {
       </p>
     </>
   );
-  return user ? (
+  return (
     <Shell
-      admin={admin}
+      admin
       title="The leaderboard"
       subtitle="Every challenge counts. Every team has a place."
     >
       {body}
     </Shell>
-  ) : (
-    <div className="platform public-board">
-      <header>
-        <Brand />
-        <Link className="button" to="/login">
-          Student login
-        </Link>
-      </header>
-      <main>
-        <h1>The leaderboard</h1>
-        <p>One arena. Shared ambition.</p>
-        {body}
-      </main>
-    </div>
   );
 }

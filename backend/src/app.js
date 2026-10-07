@@ -4,7 +4,7 @@ import helmet from "helmet";
 import { randomUUID } from "node:crypto";
 import { connectDB } from "./config/db.js";
 import { asyncRoute } from "./services/errors.js";
-import { checkOrigin } from "./middleware/security.js";
+import { checkOrigin, requireAuth, requireAdmin } from "./middleware/security.js";
 import auth from "./routes/auth.js";
 import teams from "./routes/teams.js";
 import games, { vortex } from "./routes/games.js";
@@ -53,6 +53,8 @@ app.use("/api/admin", admin);
 app.use("/api/v1", vortex);
 app.get(
   "/api/leaderboard",
+  requireAuth,
+  requireAdmin,
   asyncRoute(async (req, res) =>
     res.json(
       await leaderboard({

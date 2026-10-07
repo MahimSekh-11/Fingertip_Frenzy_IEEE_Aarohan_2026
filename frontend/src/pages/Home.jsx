@@ -106,7 +106,7 @@ export function Home() {
         <Brand />
         <nav>
           <a href="#rounds">The rounds</a>
-          <Link to="/leaderboard">Leaderboard</Link>
+          <Link to="/admin/login">Admin portal</Link>
           <Link className="nav-login" to="/login">
             Log in <ArrowUpRight size={15} />
           </Link>
@@ -158,7 +158,7 @@ export function Home() {
               </div>
               <div>
                 <strong>01</strong>
-                <span>Shared leaderboard</span>
+                <span>Private team scores</span>
               </div>
             </div>
           </div>

@@ -18,12 +18,13 @@ export async function leaderboard({
   page = 1,
   limit = 25,
   completedOnly = false,
+  teamId = null,
 } = {}) {
   const settings = Object.fromEntries(
     (await GameSetting.find().lean()).map((s) => [s.gameId, s.config]),
   );
   const pipeline = [
-    { $match: { status: "ACTIVE" } },
+    { $match: { status: "ACTIVE", ...(teamId ? { _id: teamId } : {}) } },
     {
       $lookup: {
         from: Result.collection.name,
@@ -178,7 +179,8 @@ export async function leaderboard({
   });
   if (game)
     pipeline.push({ $set: { total: { $ifNull: [`$scores.${game}`, 0] } } });
-  pipeline.push(
+  // Participant scores are filtered before aggregation and never ranked against other teams.
+  if (!teamId) pipeline.push(
     {
       $set: {
         ranking: {
@@ -217,7 +219,7 @@ export async function leaderboard({
             code: 1,
             scores: 1,
             total: { $round: ["$total", 2] },
-            rank: 1,
+            ...(teamId ? {} : { rank: 1 }),
             completed: 1,
             completionTime: 1,
           },

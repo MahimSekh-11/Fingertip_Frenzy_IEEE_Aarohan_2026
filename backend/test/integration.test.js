@@ -456,7 +456,7 @@ test("Memory uses server-owned sequences, validates time/order and records actua
   assert.equal(result.score, 22);
 });
 test("Global leaderboard aggregates all four games and manual edits are audited", async () => {
-  const r = await players[0].get("/api/leaderboard");
+  const r = await admin.get("/api/leaderboard");
   assert.equal(r.status, 200);
   assert.equal(r.body.rows.length, 2);
   assert.equal(Object.keys(r.body.rows[0].scores).length, 4);
@@ -488,7 +488,7 @@ test("Global leaderboard aggregates all four games and manual edits are audited"
     ).status,
     200,
   );
-  const updated = await players[0].get("/api/leaderboard");
+  const updated = await admin.get("/api/leaderboard");
   assert.equal(updated.body.rows[0].scores.puzzle, 50);
   assert.ok(
     await models.Audit.exists({
@@ -505,7 +505,7 @@ test("Global leaderboard aggregates all four games and manual edits are audited"
     400,
   );
   assert.equal(
-    (await players[0].get("/api/leaderboard")).body.rows[0].name,
+    (await admin.get("/api/leaderboard")).body.rows[0].name,
     "Integration Team",
   );
   assert.ok((await admin.get("/api/admin/dashboard")).body.submissions >= 4);
@@ -514,6 +514,31 @@ test("Global leaderboard aggregates all four games and manual edits are audited"
   const memoryAdmin = await admin.get("/api/admin/games/memory");
   assert.equal(memoryAdmin.body.sessions.rows[0].teamName, "Integration Team");
   assert.match(memoryAdmin.body.sessions.rows[0].userName, /Test Student/);
+});
+
+test("Only admins see standings and participants receive only their own team scores", async () => {
+  assert.equal((await supertest(app).get("/api/leaderboard")).status, 401);
+  assert.equal((await supertest(app).get("/api/admin/leaderboard")).status, 401);
+  assert.equal((await supertest(app).get("/api/teams/me/score")).status, 401);
+  for (const player of players.slice(0, 3)) {
+    assert.equal((await player.get("/api/leaderboard")).status, 403);
+    assert.equal((await player.get("/api/admin/leaderboard")).status, 403);
+    assert.equal((await player.get("/api/admin/export/leaderboard")).status, 403);
+    const own = await player.get("/api/teams/me/score?teamId=000000000000000000000000&search=Other");
+    assert.equal(own.status, 200);
+    assert.equal(own.body.score.teamId, String(team._id));
+    assert.equal(own.body.score.name, "Integration Team");
+    assert.equal(own.body.score.scores.puzzle, 50);
+    assert.equal(Object.keys(own.body.score.scores).length, 4);
+    assert.equal(own.body.score.rank, undefined);
+    assert.equal(own.body.rows, undefined);
+  }
+  const other = await players[3].get("/api/teams/me/score");
+  assert.equal(other.status, 200);
+  assert.notEqual(other.body.score.teamId, String(team._id));
+  assert.equal((await admin.get("/api/admin/leaderboard")).status, 200);
+  const filtered = await admin.get("/api/admin/leaderboard?gameId=puzzle");
+  assert.equal(filtered.body.rows[0].total, 50);
 });
 
 test("Simultaneous first logins cannot overfill a team", async () => {
@@ -571,7 +596,7 @@ test("Rank pagination and snapshot-specific Memory normalization remain stable",
     attempt: 1,
     completedAt: new Date(),
   });
-  const r = await players[0].get("/api/leaderboard?limit=1&page=1");
+  const r = await admin.get("/api/leaderboard?limit=1&page=1");
   assert.equal(r.status, 200);
   assert.equal(r.body.total, 3);
   assert.equal(r.body.rows[0].rank, 1);
@@ -582,9 +607,9 @@ test("Rank pagination and snapshot-specific Memory normalization remain stable",
       .reduce((n, x) => n + (x.score / x.maximum) * 250, 0) +
     ((1 + 0.5) / 3) * 250;
   assert.ok(Math.abs(r.body.rows[0].total - expected) < 0.02);
-  const second = await players[0].get("/api/leaderboard?limit=1&page=2");
+  const second = await admin.get("/api/leaderboard?limit=1&page=2");
   assert.equal(second.body.rows[0].rank, 2);
-  const search = await players[0].get("/api/leaderboard?search=Concurrency");
+  const search = await admin.get("/api/leaderboard?search=Concurrency");
   assert.ok(search.body.rows[0].rank >= 2);
 });
 

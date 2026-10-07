@@ -28,7 +28,6 @@ export function Brand() {
 const studentLinks = [
   ["/dashboard", "Dashboard", LayoutDashboard],
   ["/games", "Games", Gamepad2],
-  ["/leaderboard", "Leaderboard", Trophy],
   ["/team", "My team", Users],
   ["/profile", "Profile", UserRound],
 ];
@@ -94,8 +93,8 @@ export function Shell({ children, admin = false, title, subtitle }) {
           <span>
             {admin ? "ADMIN CONSOLE" : "FINGERTIP FRENZY / AAROHAN 2026"}
           </span>
-          <Link to={admin ? "/admin/leaderboard" : "/leaderboard"}>
-            Live standings <ArrowUpRight size={14} />
+          <Link to={admin ? "/admin/leaderboard" : "/team"}>
+            {admin ? "Live standings" : "My team scores"} <ArrowUpRight size={14} />
           </Link>
         </header>
         <main id="main" tabIndex={-1}>

@@ -686,6 +686,8 @@ router.get(
       await leaderboard({
         ...pagination(req.query),
         search: search(req.query.search),
+        game: req.query.gameId ? gameId.parse(req.query.gameId) : null,
+        completedOnly: req.query.completed === "true",
       }),
     ),
   ),

@@ -33,7 +33,10 @@ export default function App() {
             />
             <Route path="/team" element={protectedPage(<TeamPage />)} />
             <Route path="/profile" element={protectedPage(<Profile />)} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
+            <Route
+              path="/leaderboard"
+              element={<Navigate to="/admin/leaderboard" replace />}
+            />
             <Route path="/games/puzzle" element={protectedPage(<Puzzle />)} />
             <Route
               path="/games/detective"

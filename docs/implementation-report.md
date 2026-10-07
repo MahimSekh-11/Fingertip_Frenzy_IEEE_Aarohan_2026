@@ -4,14 +4,14 @@ Implemented in this workspace with passing build, lint and 18 automated checks. 
 
 ## Architecture and technologies
 
-React 19 / Vite 6 frontend; Express 4 / Mongoose 8 backend; one MongoDB database and same-origin API. Zod validates requests, scrypt protects admin passwords, opaque cookies authenticate users, Helmet supplies API headers, and Sharp crops images. Vercel builds two services: an Express API and a Vite frontend. MongoDB stores game state, deadlines and results; there is no production disk fallback or background socket requirement. This is JavaScript; the syntax check is not TypeScript checking.
+React 19 / Vite 6 frontend; Express 4 / Mongoose 8 backend; one MongoDB database and same-origin API. Zod validates requests, scrypt protects admin passwords, opaque cookies authenticate users, Helmet supplies API headers, and Sharp crops images. Vercel builds the frontend and packages the Express API in a single project. MongoDB stores game state, deadlines and results; there is no production disk fallback or background socket requirement. This is JavaScript; the syntax check is not TypeScript checking.
 
 ~~~
 frontend/src/       Layouts, auth, student/admin pages, retained React games
 frontend/public/    Original assets and isolated Calculator/Memory DOM games
 backend/src/        Models, middleware, validation, services, engines and routes
 backend/test/       Six engine checks and twelve MongoDB integration checks
-vercel.json         Public routing for independently built services
+vercel.json         Static frontend and Express API routing
 scripts/            Bootstrap, indexes, imports, migration and isolated UI fixture
 docs/               Audit, content, deployment, verification and change manifest
 ~~~
@@ -122,3 +122,10 @@ The platform is branded Fingertip Frenzy, organized by IEEE SB NIT Durgapur for 
 The enforced round sequence is Image Formation, Detective Case, AI Calculator and Number Memory. The server requires a valid result from the preceding round before creating the next attempt; the dashboard displays disabled locked cards. Direct API requests cannot skip this progression.
 
 The latest build transformed 1,610 modules, lint reported zero warnings/errors and all 18 tests passed. Updated browser checks verified leader registration/code generation, five-field login, automatic teammate enrollment, dark dashboard and five-item admin navigation. See verification.md for evidence and remaining live-device checks.
+
+
+## Current deployment and score visibility changes
+
+Later repository commits replaced services mode with a single root Vercel project: npm ci --include=dev, root workspace build, frontend/dist output and api/index.js function. The API handler must be included in uploads. The SPA fallback excludes static file extensions and retained game frames.
+
+Global leaderboard endpoints and exports now require administrator authentication. Participant scoring uses an authenticated active-roster endpoint filtered before aggregation; no rank or other team rows are returned. Dashboard/My team show the team total and four game scores, refreshing every 30 seconds. A new authorization/isolation integration check has been added, but these latest edits remain unexecuted because the automatic approval reviewer hit the account usage limit.

@@ -576,11 +576,11 @@ export function DetectiveGamePage() {
                 Return to Dashboard
               </button>
               <button
-                onClick={() => navigate("/leaderboard")}
+                onClick={() => navigate("/team")}
                 className="ieee-outline-btn"
                 style={{ padding: "12px 24px" }}
               >
-                View Leaderboard
+                View Team Scores
               </button>
             </div>
           </div>

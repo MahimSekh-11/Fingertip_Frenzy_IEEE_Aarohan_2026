@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Copy, Users, Trophy, CheckCircle2 } from "lucide-react";
 import { Shell } from "../components/Shell";
@@ -68,14 +68,15 @@ export function Dashboard({ gamesOnly = false }) {
               <span className="stat-icon">
                 <Trophy />
               </span>
-              <small>THE COMPETITION</small>
-              <h2>One shared goal</h2>
-              <p>Every challenge contributes to your team’s rank.</p>
-              <Link to="/leaderboard">
-                Explore standings <ArrowRight size={14} />
+              <small>YOUR TEAM SCORE</small>
+              <h2>Every round counts</h2>
+              <p>View your team’s game scores and weighted total.</p>
+              <Link to="/team">
+                View team scores <ArrowRight size={14} />
               </Link>
             </Card>
           </div>
+          {r.data?.team && <TeamScore />}
           <div className="section-heading">
             <h2>The assessment arena</h2>
             <span>Four original experiences</span>
@@ -204,7 +205,7 @@ export function TeamPage() {
             Your registered team name is fixed. Contact the administrator for
             member corrections.
           </p>
-          <TeamScore team={team} />
+          <TeamScore />
         </>
       ) : (
         <Card>
@@ -221,11 +222,13 @@ export function TeamPage() {
     </Shell>
   );
 }
-function TeamScore({ team }) {
-  const r = useResource(() =>
-    request("/leaderboard?search=" + encodeURIComponent(team.code)),
-  );
-  const row = r.data?.rows.find((x) => x._id === team._id);
+function TeamScore() {
+  const r = useResource(() => request("/teams/me/score"));
+  useEffect(() => {
+    const id = setInterval(r.reload, 30000);
+    return () => clearInterval(id);
+  }, []);
+  const row = r.data?.score;
   return (
     <Card>
       <h2>Your team scores</h2>
