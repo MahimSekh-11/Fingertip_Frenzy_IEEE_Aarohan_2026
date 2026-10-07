@@ -105,6 +105,32 @@ test("Database failures are diagnosed safely and warm functions reconnect", asyn
     await connectDB();
   }
 });
+test("Origin configuration tolerates formatting but still rejects other sites", async () => {
+  const configuredOrigin = process.env.APP_ORIGIN;
+  try {
+    for (const value of [origin, origin + "/", `  "${origin}/"  `]) {
+      process.env.APP_ORIGIN = value;
+      assert.equal(
+        (await call(supertest(app), "post", "/auth/logout", {})).status,
+        200,
+      );
+    }
+    const rejected = await supertest(app)
+      .post("/api/auth/login")
+      .set("Origin", "https://untrusted.example.test")
+      .set("X-Forwarded-Host", "untrusted.example.test")
+      .send({});
+    assert.equal(rejected.status, 403);
+    assert.equal(rejected.body.code, "ORIGIN_NOT_PERMITTED");
+    assert.ok(rejected.body.requestId);
+    process.env.APP_ORIGIN = origin + "/login";
+    const invalid = await call(supertest(app), "post", "/auth/login", {});
+    assert.equal(invalid.status, 503);
+    assert.equal(invalid.body.code, "APPLICATION_ORIGIN_INVALID");
+  } finally {
+    process.env.APP_ORIGIN = configuredOrigin;
+  }
+});
 test("Leader registration creates unique team atomically; five-field login, logout and expiry", async () => {
   const registered = await call(players[0], "post", "/auth/register", {
     ...identity(0),

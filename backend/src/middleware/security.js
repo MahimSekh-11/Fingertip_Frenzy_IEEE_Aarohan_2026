@@ -28,11 +28,39 @@ export const checkOrigin = (req, res, next) => {
           publicCode: "APPLICATION_ORIGIN_MISSING",
         }),
       );
+    let configuredOrigin;
+    try {
+      // Dashboard values may contain surrounding whitespace/quotes or a slash.
+      const value = process.env.APP_ORIGIN.trim().replace(
+        /^(["'])(.*)\1$/,
+        "$2",
+      );
+      const url = new URL(value);
+      if (
+        !["https:", "http:"].includes(url.protocol) ||
+        url.username ||
+        url.password ||
+        url.pathname !== "/" ||
+        url.search ||
+        url.hash
+      )
+        throw new Error("Invalid application origin");
+      configuredOrigin = url.origin;
+    } catch {
+      return next(
+        Object.assign(new Error("Application origin is invalid."), {
+          status: 503,
+          publicCode: "APPLICATION_ORIGIN_INVALID",
+        }),
+      );
+    }
     const origin = req.headers.origin;
-    if (origin !== process.env.APP_ORIGIN)
-      return res
-        .status(403)
-        .json({ message: "Request origin is not permitted." });
+    if (origin !== configuredOrigin)
+      return res.status(403).json({
+        message: "Request origin is not permitted.",
+        code: "ORIGIN_NOT_PERMITTED",
+        requestId: res.get("X-Request-ID"),
+      });
   }
   next();
 };
