@@ -2,6 +2,9 @@
   "name": "@aarohan/frontend",
   "private": true,
   "type": "module",
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "vite build",

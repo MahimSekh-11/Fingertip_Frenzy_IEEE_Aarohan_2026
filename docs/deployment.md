@@ -57,3 +57,10 @@ Two deployment failures were reported: npm EUSAGE from `npm ci --prefix ..`, the
 ## Private standings
 
 Global standings, rank information and leaderboard exports require administrator authentication. Participants use /api/teams/me/score; the server derives the team from the authenticated active roster rather than accepting a client-selected team. Dashboard and My team show only that team's game scores and weighted total. This endpoint returns no rank or other team rows.
+
+
+## Install-script and audit warnings
+
+The service configuration now builds successfully in the supplied Vercel log. Funding notices and .vercelignore removals are informational. Dependency audit fixes are recorded in the committed manifests and package-lock.json: Sharp >=0.35.5, and a narrow Concurrently shell-quote override at 1.11.0. Commit the lockfile with the manifests so npm ci uses patched packages.
+
+The esbuild@0.25.12 script is explicitly allowed in the root and frontend package.json. Keep this declaration aligned with the exact locked esbuild version when updating Vite. Do not approve all scripts or suppress npm auditing to hide warnings. Sharp 0.35.5 has no install lifecycle check requiring approval. Run npm 12 install-scripts ls from the repository root to review this policy; that command does not support workspace selection. The root and per-service build commands remain unchanged.
