@@ -1,5 +1,4 @@
 /* Same-origin session adapter. No credentials or tokens are passed to the game. */
-addEventListener("pagehide", () => window.visionEngine?.stopCamera());
 window.platformApi = async (path, body) => {
   const res = await fetch("/api" + path, {
     credentials: "same-origin",

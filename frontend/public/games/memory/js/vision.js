@@ -37,7 +37,6 @@ class VisionEngine {
     this.videoElement = videoEl;
     this.canvasElement = canvasEl;
     this.canvasCtx = canvasEl.getContext('2d');
-    if (this.hands) return true;
 
     // Load MediaPipe Hands
     if (!window.Hands) {
@@ -61,7 +60,7 @@ class VisionEngine {
   }
 
   async startCamera() {
-    if (this.isRunning) return true;
+    if (this.isRunning) return;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -74,10 +73,6 @@ class VisionEngine {
       this.canvasElement.height = this.videoElement.videoHeight || 480;
 
       this.isRunning = true;
-      // Load the model and process the first frame before starting the game clock.
-      await this.hands.send({ image: this.videoElement });
-      // Load the model and process the first frame before starting the game clock.
-      await this.hands.send({ image: this.videoElement });
 
       // Processing loop via requestAnimationFrame
       const loop = async () => {
@@ -91,8 +86,7 @@ class VisionEngine {
       return true;
     } catch (err) {
       console.error('Camera access error:', err);
-      this.stopCamera();
-      window.app.showToast('Camera unavailable. Allow access in browser settings, or use the number buttons.', 'info');
+      alert('Camera access denied or unavailable. Please allow camera permissions to play with hand gestures.');
       return false;
     }
   }

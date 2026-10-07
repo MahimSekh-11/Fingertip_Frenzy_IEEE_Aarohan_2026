@@ -50,7 +50,7 @@ export async function loginParticipant({ teamCode: code, ...identity }) {
         user.rollNo !== identity.rollNo ||
         user.phoneNo !== identity.phoneNo ||
         user.email?.toLowerCase() !== identity.email ||
-        user.name.trim().replace(/\s+/g, " ").toLowerCase() !== identity.name.toLowerCase() ||
+        user.name.trim().toLowerCase() !== identity.name.toLowerCase() ||
         String(user.teamId) !== String(team._id) ||
         !team.memberIds.some((id) => String(id) === String(user._id))
       )

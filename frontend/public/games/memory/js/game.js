@@ -79,7 +79,7 @@ class GameEngine {
     this.currentStage = stageNum;
     this._countdownPending = false;
     const briefingButton = document.querySelector("#stage-brief-screen button");
-    if (briefingButton) { briefingButton.disabled = false; briefingButton.textContent = "Start memorization"; }
+    if (briefingButton) briefingButton.disabled = false;
     const stage = await window.platformApi("/games/memory/stage/start", {
       stage: stageNum,
     });
@@ -127,22 +127,10 @@ class GameEngine {
     this._countdownPending = true;
     if (button) button.disabled = true;
     try {
-      if (document.getElementById("memory-input-mode").value === "camera") {
-        window.visionEngine.onFrameUpdate = null;
-        window.visionEngine.onDigitLocked = null;
-        if (button) button.textContent = "Preparing camera…";
-        const ready = await window.visionEngine.init(document.getElementById("webcam-video"), document.getElementById("vision-canvas"));
-        if (!ready || !(await window.visionEngine.startCamera())) {
-          document.getElementById("memory-input-mode").value = "manual";
-          window.app.showToast("Number buttons are ready. Camera setup did not complete.", "info");
-        }
-      }
-      if (button) button.textContent = "Starting…";
       await window.platformApi("/games/memory/stage/countdown", {});
     } catch (e) {
       this._countdownPending = false;
       if (button) button.disabled = false;
-      if (button) button.textContent = "Start memorization";
       window.app.showToast(e.message, "error");
       return;
     }
@@ -310,21 +298,20 @@ class GameEngine {
     if (lockBtn) {
       lockBtn.onclick = () => {
         if (!this.isStepLocked) {
-          const d = window.visionEngine.currentDigit;
-          if (d === null) { window.app.showToast("Show a digit first, or choose a number below.", "info"); return; }
+          const d =
+            window.visionEngine.currentDigit !== null
+              ? window.visionEngine.currentDigit
+              : 0;
           this.handleDigitLocked(d, d === this.expectedDigit);
         }
       };
     }
 
-    document.querySelectorAll('[data-manual-digit]').forEach(button => {
-      button.onclick = () => { if (!this.isStepLocked) { const digit = Number(button.dataset.manualDigit); this.handleDigitLocked(digit, digit === this.expectedDigit); } };
-    });
-    // Keyboard fallback (0-9), excluding shortcuts and editable controls.
+    // Keyboard Fallback (1-9)
     if (this._keyListener)
       document.removeEventListener("keydown", this._keyListener);
     this._keyListener = (e) => {
-      if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey && !e.target.closest('input,textarea,select,[contenteditable="true"]') && !this.isStepLocked) {
+      if (e.key >= "1" && e.key <= "9" && !this.isStepLocked) {
         const val = parseInt(e.key);
         this.handleDigitLocked(val, val === this.expectedDigit);
       }
@@ -337,11 +324,27 @@ class GameEngine {
       this.updateHudOverlay(data);
     };
 
-    // Camera setup completes before the timed countdown.
-    if (!window.visionEngine.isRunning) {
-      const statusPill = document.getElementById("camera-hand-status");
-      if (statusPill) statusPill.textContent = "Camera off · use digits 0–9";
-    }
+    // Initialize Camera asynchronously so page renders spontaneously without blocking
+    const videoEl = document.getElementById("webcam-video");
+    const canvasEl = document.getElementById("vision-canvas");
+
+    window.visionEngine
+      .init(videoEl, canvasEl)
+      .then(() => {
+        return window.visionEngine.startCamera();
+      })
+      .then((camStarted) => {
+        if (!camStarted) {
+          console.warn(
+            "Camera could not be started or permission denied. Fallback keyboard controls active.",
+          );
+          const statusPill = document.getElementById("camera-hand-status");
+          if (statusPill) statusPill.textContent = "Fallback Mode (Keys 1-9)";
+        }
+      })
+      .catch((err) => {
+        console.warn("Camera initialization error:", err);
+      });
   }
 
   // Left Panel Grid of Sequence Numbers of this specific stage (Colourless until answered)

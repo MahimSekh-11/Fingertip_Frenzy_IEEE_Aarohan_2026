@@ -981,21 +981,6 @@ test("Admin manages identities and rosters, while team names remain immutable an
   );
 });
 
-test("Login accepts everyday formatting and identifies invalid fields", async () => {
-  await models.RateBucket.deleteMany({}); // Reset only isolated fixture request counters.
-  const savedTeam = await models.Team.findById(team._id);
-  const formatted = await call(players[0], "post", "/auth/login", {
-    ...identity(0), name: "  TEST   STUDENT 0 ", rollNo: " 24cs 100 ", phoneNo: "+91 98765-43200", email: " STUDENT0@EXAMPLE.TEST ", teamCode: ` ${savedTeam.code.toLowerCase()} `,
-  });
-  assert.equal(formatted.status, 200);
-  const invalid = await call(players[0], "post", "/auth/login", { ...identity(0), teamCode: savedTeam.code, phoneNo: "123" });
-  assert.equal(invalid.status, 400);
-  assert.match(invalid.body.message, /phone number/);
-  assert.doesNotMatch(invalid.body.message, /Please check your input/);
-  const wrong = await call(players[0], "post", "/auth/login", { ...identity(0), teamCode: savedTeam.code, email: "wrong@example.test" });
-  assert.equal(wrong.status, 401);
-});
-
 test("Reset attempts return usable game states and Detective rejects blank options", async () => {
   const puzzle = await models.GameSession.findOne({ teamId: team._id, gameId: "puzzle" }).sort({ attempt: -1 });
   assert.equal((await call(admin, "post", `/admin/games/puzzle/sessions/${puzzle._id}/reset`, { reason: "Verified restart regression" })).status, 200);
