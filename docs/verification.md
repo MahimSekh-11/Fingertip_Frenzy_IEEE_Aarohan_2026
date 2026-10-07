@@ -91,3 +91,10 @@ The supplied deployment error was npm EUSAGE from `npm ci --prefix ..`, plus an 
 Score privacy now requires administrator authentication for all global standings/export paths and derives `/api/teams/me/score` from active authenticated membership. The participant dashboard/team page render only that scoped result. A new integration check covers anonymous and participant denial, own-team scores, ignored query manipulation, separate teams, missing rank data and admin filters. Previous aggregation tests now use administrator cookies.
 
 These latest privacy edits have not been executed through tests/build/lint. Automatic approval review rejected the final verification command because the account usage limit prevented review; it explicitly reported no determination that the command was unsafe. The working checkout dependencies were restored successfully after a Windows native-file lock during installation. A new cloud deployment has not been verified.
+
+
+## Restored services configuration — final local verification
+
+The next supplied cloud log explicitly reported a framework mismatch: the Vercel project was set to services but the committed config had no services. Restored backend (Express, src/app.js) and frontend (Vite, dist) under the top-level services object. Install/build/output/function settings are scoped per service. Public /api rewrites target backend and the final catch-all targets frontend. The unused root api/ folder is excluded again. Deployment docs now instruct keeping the dashboard framework at Services and project root at the repository root.
+
+Verification after these changes: npm run build passed (1,610 frontend modules plus backend syntax), npm run lint passed with zero warnings/errors, npm test passed all 19 checks with zero failures/skips, including score privacy and team/member management. JSON structure checks verified declared service roots and absence of forbidden top-level build/runtime keys. npm dependency restoration did not change package-lock.json. No cloud redeployment was performed; redeploy the commit containing this restored config.
