@@ -18,19 +18,59 @@ const databaseError = (code) =>
   );
 
 // Inspect driver error codes only. Raw driver messages can contain credentials.
-function connectionErrorCode(error) {
-  const errors = [error, error?.cause, error?.reason];
-  for (const server of error?.reason?.servers?.values?.() || [])
-    errors.push(server.error, server.error?.cause);
+export function connectionErrorCode(error) {
+  const errors = [];
+  const seen = new Set();
+  const inspect = (value, depth = 0) => {
+    if (!value || depth > 8 || seen.has(value)) return;
+    seen.add(value);
+    errors.push(value);
+    inspect(value.cause, depth + 1);
+    inspect(value.reason, depth + 1);
+    inspect(value.error, depth + 1);
+    for (const server of value.servers?.values?.() || [])
+      inspect(server.error, depth + 1);
+  };
+  inspect(error);
   if (errors.some((e) => e?.code === 18)) return "DATABASE_AUTH_FAILED";
   if (errors.some((e) => e?.name === "MongoParseError"))
     return "DATABASE_CONFIGURATION_INVALID";
   if (
     errors.some((e) =>
-      ["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ETIMEDOUT"].includes(e?.code),
+      /^(?:ERR_SSL_|ERR_TLS_|CERT_|DEPTH_ZERO_|UNABLE_TO_VERIFY_)/.test(
+        e.code || "",
+      ),
+    )
+  )
+    return "DATABASE_TLS_ERROR";
+  if (
+    errors.some((e) =>
+      ["ENOTFOUND", "EAI_AGAIN", "ENODATA", "ESERVFAIL"].includes(e.code),
+    )
+  )
+    return "DATABASE_DNS_ERROR";
+  if (
+    errors.some(
+      (e) =>
+        [
+          "ECONNREFUSED",
+          "ETIMEDOUT",
+          "ECONNRESET",
+          "ENETUNREACH",
+          "EHOSTUNREACH",
+        ].includes(e?.code) ||
+        ["MongoNetworkError", "MongoNetworkTimeoutError"].includes(e?.name),
     )
   )
     return "DATABASE_NETWORK_ERROR";
+  if (
+    errors.some((e) =>
+      ["MongoServerSelectionError", "MongooseServerSelectionError"].includes(
+        e.name,
+      ),
+    )
+  )
+    return "DATABASE_CONNECTION_TIMEOUT";
   return "DATABASE_UNAVAILABLE";
 }
 

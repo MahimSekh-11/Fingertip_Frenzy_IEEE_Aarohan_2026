@@ -87,3 +87,11 @@ The deployed site's `/api/health` returned the application's 503 response during
 The connection cache now keeps only in-flight connection attempts and clears after either success or failure. Warm functions reconnect after disconnection instead of reusing a permanently resolved promise. The Node 24 regression suite verifies missing/invalid URI responses, healthy readiness, concurrent connection attempts, reconnection, actual registration/login, and score privacy; all 20 tests pass. Lint and the production build also pass. These local checks do not establish live Atlas connectivity until the new commit is deployed and readiness succeeds.
 
 References: [Atlas connection troubleshooting](https://www.mongodb.com/docs/atlas/troubleshoot-connection/) and [Vercel environment variables](https://vercel.com/docs/environment-variables).
+
+### Atlas URI verification on October 7
+
+The private local backend/.env and root .env contain the same Atlas URI. A read-only connection using Node 24 succeeded and returned a successful ping. This verifies the local URI/credentials and access from this computer; it does not verify the secret stored in Vercel or access from Vercel's outbound IPs. Local APP_ORIGIN is a development setting, so do not copy that value into Production.
+
+Run `npm run db:check` to connect, ping, and check transaction-capable topology with the current environment. This command makes no writes and prints no credentials or hostnames. Vercel dashboard MONGODB_URI must contain the exact privately verified Atlas value. Save environment changes and create a new deployment.
+
+Nested driver errors now distinguish `DATABASE_DNS_ERROR`, `DATABASE_TLS_ERROR`, `DATABASE_NETWORK_ERROR`, and `DATABASE_CONNECTION_TIMEOUT`. Timeout alone is not proof of an IP access-list problem: check Atlas Network Access, cluster status and Vercel's environment value. TLS errors must be investigated without disabling certificate validation. DNS errors require checking the Atlas hostname and whether the cluster is paused or deleted. The new classifications retain a safe fixed code rather than raw driver messages. Unit tests cover nested causes and ensure credentials never appear in diagnostic output.
