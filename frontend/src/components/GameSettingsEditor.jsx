@@ -68,7 +68,15 @@ export function GameSettingsEditor({ value, busy, onSave }) {
         );
       return (
         <label className="field" key={p.join(".")}>
-          <span>{label}</span>
+          <span>
+            {label}
+            {!["startAt", "endAt"].includes(key) && (
+              <span className="required-mark" aria-hidden="true">
+                {" "}
+                *
+              </span>
+            )}
+          </span>
           {Array.isArray(v) ? (
             <input
               value={v.join(", ")}
@@ -129,6 +137,10 @@ export function GameSettingsEditor({ value, busy, onSave }) {
         onSave(config);
       }}
     >
+      <p className="form-required-note">
+        <span className="required-mark">*</span> Required. Opening and closing
+        times are optional.
+      </p>
       {render(config)}
       <Notice error>{error}</Notice>
       <Button busy={busy}>Save game settings</Button>

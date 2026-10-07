@@ -17,9 +17,14 @@ export function assertAvailable(config, now = Date.now()) {
     fail(403, "This game is currently unavailable.");
 }
 export const scopeFor = (game, user) =>
-  game === "memory" ? String(user._id) : String(user.teamId);
+  user.role === "ADMIN"
+    ? `admin:${user._id}`
+    : game === "memory"
+      ? String(user._id)
+      : String(user.teamId);
 export const gameOrder = ["puzzle", "detective", "calculator", "memory"];
 export async function roundLock(game, user, tx) {
+  if (user.role === "ADMIN") return null;
   const previous = gameOrder[gameOrder.indexOf(game) - 1];
   if (!previous) return null;
   const completed = await Result.exists({
@@ -30,7 +35,7 @@ export async function roundLock(game, user, tx) {
   return completed ? null : previous;
 }
 export async function finishResult(doc, session) {
-  if (doc.status !== "COMPLETED") return;
+  if (doc.status !== "COMPLETED" || doc.testMode) return;
   await Result.updateOne(
     { sessionId: doc._id },
     {
@@ -54,7 +59,7 @@ export async function startGame(game, user) {
   await transaction(async (tx) => {
     const team = await teamFor(user, tx),
       cfg = await gameSettings(game, tx);
-    assertAvailable(cfg);
+    if (user.role !== "ADMIN") assertAvailable(cfg);
     const locked = await roundLock(game, user, tx);
     if (locked)
       fail(403, "Complete the previous round before starting this game.");
@@ -73,6 +78,7 @@ export async function startGame(game, user) {
     }
     if (
       previous &&
+      user.role !== "ADMIN" &&
       previous.attempt >= cfg.maxAttempts &&
       !previous.retryGranted
     )
@@ -144,6 +150,7 @@ export async function startGame(game, user) {
           gameId: game,
           userId: user._id,
           teamId: team._id,
+          testMode: user.role === "ADMIN",
           attempt: (previous?.attempt || 0) + 1,
           startedAt,
           maximum,
@@ -154,8 +161,10 @@ export async function startGame(game, user) {
       { session: tx },
     );
     // Touch the team in the same transaction so game start and membership edits cannot race.
-    team.updatedAt = new Date();
-    await team.save({ session: tx });
+    if (!team.testMode) {
+      team.updatedAt = new Date();
+      await team.save({ session: tx });
+    }
   });
   return result;
 }
@@ -163,7 +172,7 @@ export async function mutateGame(game, user, fn) {
   let payload;
   await transaction(async (tx) => {
     const team = await teamFor(user, tx);
-    assertAvailable(await gameSettings(game, tx));
+    if (user.role !== "ADMIN") assertAvailable(await gameSettings(game, tx));
     const doc = await GameSession.findOne({
       scope: scopeFor(game, user),
       gameId: game,
@@ -190,31 +199,38 @@ export async function calculatorState(user, event = {}) {
   const scope = scopeFor("calculator", user);
   if (!(await GameSession.exists({ scope, gameId: "calculator" })))
     await startGame("calculator", user);
-  const recent = await GameSession.findOne({
+  let recent = await GameSession.findOne({
     scope,
     gameId: "calculator",
   }).sort({ attempt: -1 });
+  if (recent.status === "ABANDONED") {
+    await startGame("calculator", user);
+    recent = await GameSession.findOne({ scope, gameId: "calculator" }).sort({ attempt: -1 });
+  }
   if (recent.status === "COMPLETED") {
     const team = await teamFor(user),
-      members = await User.find({ _id: { $in: team.memberIds } });
+      members = team.testMode
+        ? team.members
+        : await User.find({ _id: { $in: team.memberIds } });
     return calculatorView(recent, team, members, user);
   }
   await mutateGame("calculator", user, async (doc, team, tx) => {
     advanceCalculator(doc, team, user, event);
-    const members = await User.find({ _id: { $in: team.memberIds } }).session(
-      tx,
-    );
+    const members = team.testMode
+      ? team.members
+      : await User.find({ _id: { $in: team.memberIds } }).session(tx);
     view = calculatorView(doc, team, members, user);
   });
   return view;
 }
 export async function getCurrent(game, user) {
   const team = await teamFor(user);
-  assertAvailable(await gameSettings(game));
+  if (user.role !== "ADMIN") assertAvailable(await gameSettings(game));
   const doc = await GameSession.findOne({
     scope: scopeFor(game, user),
     gameId: game,
   }).sort({ attempt: -1 });
+  if (doc?.status === "ABANDONED") return { team, doc: null };
   if (
     doc?.status === "IN_PROGRESS" &&
     doc.state.expiresAt &&

@@ -46,15 +46,23 @@ export function TeamEditor({ value, busy, onSave, onClose }) {
             <strong>{value.name}</strong> · Registered team name is fixed.
           </p>
           <label className="field">
-            Status
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
+            Status <span className="required-mark">*</span>
+            <select
+              required
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
               <option>ACTIVE</option>
               <option>INACTIVE</option>
             </select>
           </label>
           <label className="field">
-            Team leader
-            <select value={leader} onChange={(e) => setLeader(e.target.value)}>
+            Team leader <span className="required-mark">*</span>
+            <select
+              required
+              value={leader}
+              onChange={(e) => setLeader(e.target.value)}
+            >
               {members.map((m) => (
                 <option value={m._id} key={m._id}>
                   {m.name} · {m.rollNo}

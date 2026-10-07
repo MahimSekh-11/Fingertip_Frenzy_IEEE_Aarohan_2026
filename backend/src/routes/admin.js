@@ -115,6 +115,7 @@ router.get(
           },
         ]),
         GameSession.aggregate([
+          { $match: { testMode: { $ne: true } } },
           {
             $group: {
               _id: "$gameId",
@@ -447,7 +448,7 @@ router.get(
       filter = { gameId: game };
     const [settings, sessions, content, stats] = await Promise.all([
       gameSettings(game),
-      list(GameSession, req, filter),
+      list(GameSession, req, { ...filter, testMode: { $ne: true } }),
       Content.find(filter).sort({ order: 1 }).limit(100).lean(),
       Result.aggregate([
         { $match: { gameId: game, valid: true } },
@@ -470,6 +471,28 @@ router.get(
       content,
       stats: stats[0] || { completed: 0 },
     });
+  }),
+);
+router.post(
+  "/games/:gameId/test/reset",
+  asyncRoute(async (req, res) => {
+    const game = gameId.parse(req.params.gameId);
+    await GameSession.updateMany(
+      {
+        gameId: game,
+        userId: req.user._id,
+        testMode: true,
+        status: "IN_PROGRESS",
+      },
+      {
+        $set: {
+          status: "ABANDONED",
+          completedAt: new Date(),
+          retryGranted: true,
+        },
+      },
+    );
+    res.json({ success: true });
   }),
 );
 router.patch(

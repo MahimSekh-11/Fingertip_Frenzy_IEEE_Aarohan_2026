@@ -36,6 +36,10 @@ export function Leaderboard({ admin = false }) {
     return () => clearInterval(id);
   }, []);
   const podium = useResource(() => request("/admin/leaderboard?limit=3"), []);
+  useEffect(() => {
+    const timer = setInterval(podium.reload, 30000);
+    return () => clearInterval(timer);
+  }, []);
   const body = (
     <>
       <div className="podium">

@@ -43,6 +43,7 @@ export function Shell({ children, admin = false, title, subtitle }) {
     [open, setOpen] = useState(false),
     [error, setError] = useState(""),
     nav = useNavigate();
+  admin = admin || user?.role === "ADMIN";
   return (
     <div className="platform workspace">
       <a className="skip" href="#main">
@@ -94,7 +95,8 @@ export function Shell({ children, admin = false, title, subtitle }) {
             {admin ? "ADMIN CONSOLE" : "FINGERTIP FRENZY / AAROHAN 2026"}
           </span>
           <Link to={admin ? "/admin/leaderboard" : "/team"}>
-            {admin ? "Live standings" : "My team scores"} <ArrowUpRight size={14} />
+            {admin ? "Live standings" : "My team scores"}{" "}
+            <ArrowUpRight size={14} />
           </Link>
         </header>
         <main id="main" tabIndex={-1}>

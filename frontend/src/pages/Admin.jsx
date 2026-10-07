@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
 import {
   Download,
   Plus,
@@ -39,7 +39,7 @@ export function AdminDashboard() {
       <Notice error>{r.error}</Notice>
       {r.loading ? (
         <Loading />
-      ) : (
+      ) : d ? (
         <>
           <div className="stats-grid">
             {[
@@ -84,6 +84,8 @@ export function AdminDashboard() {
             })}
           </Card>
         </>
+      ) : (
+        <Empty>Event overview is unavailable. Please try again.</Empty>
       )}
     </Shell>
   );
@@ -379,8 +381,8 @@ export function AdminRecords({ entity, embedded = false, onChange }) {
                   Record ID: <code>{edit._id}</code>
                 </p>
                 <label className="field">
-                  Status
-                  <select name="status" defaultValue={edit.status}>
+                  Status <span className="required-mark">*</span>
+                  <select required name="status" defaultValue={edit.status}>
                     <option>ACTIVE</option>
                     <option>INACTIVE</option>
                   </select>
@@ -417,6 +419,13 @@ export function AdminGame() {
     () => request(`/admin/games/${gameId}?page=${page}`),
     [gameId, page],
   );
+  useEffect(() => {
+    setPage(1);
+    setEdit(null);
+    setRemove(null);
+    setError("");
+    setMessage("");
+  }, [gameId]);
   const act = async (path, method, body) => {
     setBusy(true);
     setError("");
@@ -441,6 +450,17 @@ export function AdminGame() {
     >
       <Notice error>{error || r.error}</Notice>
       <Notice>{message}</Notice>
+      <div className="admin-game-intro table-toolbar">
+        <p>
+          Fields marked <span className="required-mark">*</span> are mandatory.
+          Save your changes before testing.
+        </p>
+        {catalog.some((g) => g.id === gameId) && (
+          <Link className="button" to={`/games/${gameId}`}>
+            Play game in test mode
+          </Link>
+        )}
+      </div>
       {r.loading ? (
         <Loading />
       ) : (
@@ -535,35 +555,42 @@ export function AdminGame() {
                   </h2>
                   <Button
                     onClick={() =>
-                      setEdit({
-                        title: "",
-                        published: false,
-                        order: 0,
-                        data:
-                          gameId === "puzzle"
-                            ? {
-                                description: "",
-                                imageUrl: "",
-                                gridRows: 3,
-                                gridCols: 3,
-                                points: 100,
-                                timeLimitSeconds: 300,
-                                hint: "",
-                                pieces: [],
-                                correctOrder: [],
-                              }
-                            : {
-                                description: "",
-                                difficulty: "Medium",
-                                suspects: [],
-                                clues: [],
-                                questions: [],
-                                hints: [],
-                              },
-                      })
+                      gameId === "puzzle"
+                        ? document
+                            .getElementById("puzzle-upload")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            })
+                        : setEdit({
+                            title: "",
+                            published: false,
+                            order: 0,
+                            data:
+                              gameId === "puzzle"
+                                ? {
+                                    description: "",
+                                    imageUrl: "",
+                                    gridRows: 3,
+                                    gridCols: 3,
+                                    points: 100,
+                                    timeLimitSeconds: 300,
+                                    hint: "",
+                                    pieces: [],
+                                    correctOrder: [],
+                                  }
+                                : {
+                                    description: "",
+                                    difficulty: "Medium",
+                                    suspects: [],
+                                    clues: [],
+                                    questions: [],
+                                    hints: [],
+                                  },
+                          })
                     }
                   >
-                    Add content
+                    {gameId === "puzzle" ? "Upload new puzzle" : "Add case"}
                   </Button>
                 </div>
                 <p>

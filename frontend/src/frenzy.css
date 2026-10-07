@@ -205,19 +205,19 @@
   color: #ffb4c8;
   border-color: #623747;
 }
-.platform aside {
+.platform.workspace > aside {
   background: #0d1421;
   border-right-color: #233047;
 }
-.platform aside nav a {
+.platform.workspace > aside nav a {
   color: #a0aec4;
   border-radius: 10px;
 }
-.platform aside nav a:hover {
+.platform.workspace > aside nav a:hover {
   background: #172133;
   color: #f0f5ff;
 }
-.platform aside nav a.active {
+.platform.workspace > aside nav a.active {
   background: #ffb35c12;
   color: var(--amber);
   border: 1px solid #ffb35c26;
@@ -1149,4 +1149,174 @@
 .platform .attempt-list > div,
 .platform .content-row {
   border-color: #2b3951;
+}
+
+/* Shared form and arena refinements. Navigation styles apply only to the shell sidebar. */
+.detective-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 20px; }
+.detective-layout > * { min-width: 0; }
+.detective-layout button { white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 800px) { .detective-layout { grid-template-columns: minmax(0,1fr); } }
+.platform .required-mark {
+  display: inline;
+  color: #ffb4c8;
+  font-weight: 800;
+}
+.platform .form-required-note {
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+.platform .field {
+  min-width: 0;
+}
+.platform .field input,
+.platform .field textarea,
+.platform .field select {
+  width: 100%;
+  min-width: 0;
+}
+.platform .field input:required:invalid:not(:placeholder-shown):focus {
+  border-color: var(--amber);
+}
+.platform input:focus-visible,
+.platform textarea:focus-visible,
+.platform select:focus-visible,
+.platform button:focus-visible,
+.platform a:focus-visible {
+  outline: 2px solid var(--ice);
+  outline-offset: 3px;
+}
+.platform .content-editor fieldset {
+  min-width: 0;
+  margin: 18px 0;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  padding: 18px;
+  background: #0b132180;
+}
+.platform .content-editor legend {
+  color: var(--ice);
+  padding: 0 8px;
+  font-weight: 700;
+}
+.platform .option-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.platform .option-row .field {
+  flex: 1;
+}
+.platform .option-row button {
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+.platform .question-options {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: #080d1880;
+  margin-bottom: 16px;
+}
+.platform .admin-game-intro {
+  margin-bottom: 20px;
+}
+.platform .admin-game-intro p,
+.platform .admin-test-panel p {
+  margin-bottom: 0;
+}
+.platform .admin-test-panel {
+  border: 1px solid #72e3d24d;
+  border-radius: 16px;
+  padding: 20px;
+  background: linear-gradient(130deg, #12303888, #101927);
+  margin-bottom: 24px;
+}
+.platform .admin-test-panel strong {
+  color: var(--ice);
+}
+.platform .test-calculator-controls {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 16px;
+}
+.platform .test-calculator-controls .actions {
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.platform .test-digit-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.platform .test-digit-controls button {
+  min-width: 42px;
+}
+.platform .two-columns,
+.platform .stats-grid,
+.platform .dashboard-summary {
+  min-width: 0;
+}
+.platform .card,
+.platform .workspace-main {
+  min-width: 0;
+}
+.platform .table-scroll {
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+}
+.platform .content-row {
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.platform .content-row > div:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pg-layout > aside.pg-col {
+  position: sticky;
+  top: 88px;
+  width: auto;
+  height: auto;
+  transform: none;
+  z-index: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.pg-att-top,
+.pg-att-foot {
+  flex-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 980px) {
+  .pg-layout > aside.pg-col {
+    position: static;
+  }
+}
+@media (max-width: 650px) {
+  .platform .admin-test-panel {
+    padding: 16px;
+  }
+  .platform .admin-test-panel .actions {
+    width: 100%;
+  }
+  .platform .admin-test-panel .actions > a,
+  .platform .admin-test-panel .actions > button {
+    flex: 1;
+  }
+  .platform .option-row {
+    align-items: center;
+  }
+  .platform .option-row button {
+    padding: 8px;
+    font-size: 12px;
+  }
+  .platform .content-editor fieldset {
+    padding: 14px;
+  }
+  .platform .page-heading {
+    align-items: flex-start;
+    gap: 12px;
+  }
 }

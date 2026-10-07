@@ -33,10 +33,10 @@ window.app = {
 };
 addEventListener("DOMContentLoaded", async () => {
   try {
-    const [{ user }, { team }] = await Promise.all([
-      window.platformApi("/auth/me"),
-      window.platformApi("/teams/me"),
-    ]);
+    const { user } = await window.platformApi("/auth/me");
+    const team = user.role === "ADMIN"
+      ? { name: "Administrator test arena", code: "TEST ONLY" }
+      : (await window.platformApi("/teams/me")).team;
     if (!team)
       throw new Error(
         "Create or join a team from your dashboard before playing.",
@@ -47,7 +47,7 @@ addEventListener("DOMContentLoaded", async () => {
     document.getElementById("view-game-arena").classList.add("active");
     await window.gameEngine.loadConfig();
     window.gameEngine.setParticipantData(
-      { name: user.name, rollNumber: user.rollNo, teamCode: team.code },
+      { name: user.name, rollNumber: user.rollNo || "ADMIN TEST", teamCode: team.code },
       team,
     );
     const state = await window.platformApi("/games/memory/state");

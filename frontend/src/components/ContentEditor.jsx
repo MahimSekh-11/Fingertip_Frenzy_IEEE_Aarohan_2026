@@ -3,6 +3,7 @@ import { Field, Button, Notice } from "./ui";
 const id = () => crypto.randomUUID();
 export function ContentEditor({ value, game, busy, onSave, onClose }) {
   const [body, setBody] = useState(structuredClone(value));
+  const [error, setError] = useState("");
   const data = body.data;
   const change = (key, v) => setBody((b) => ({ ...b, [key]: v }));
   const set = (key, v) =>
@@ -13,10 +14,22 @@ export function ContentEditor({ value, game, busy, onSave, onClose }) {
       data[list].map((x, i) => (i === index ? { ...x, [key]: v } : x)),
     );
   const remove = (list, index) =>
-    set(
-      list,
-      data[list].filter((_, i) => i !== index),
-    );
+    setBody((b) => ({
+      ...b,
+      data: {
+        ...b.data,
+        [list]: b.data[list].filter((_, i) => i !== index),
+        ...(list === "questions"
+          ? {
+              hints: b.data.hints.map((h) =>
+                h.questionId === b.data.questions[index].id
+                  ? { ...h, questionId: null }
+                  : h,
+              ),
+            }
+          : {}),
+      },
+    }));
   const add = (list, v) => set(list, [...data[list], v]);
   return (
     <div className="content-editor">
@@ -29,9 +42,54 @@ export function ContentEditor({ value, game, busy, onSave, onClose }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          onSave(body);
+          setError("");
+          if (game === "detective") {
+            if (!data.questions.length)
+              return setError(
+                "Add at least one question before saving the case.",
+              );
+            for (const [i, q] of data.questions.entries()) {
+              if (!q.question.trim())
+                return setError(`Question ${i + 1}: enter the question text.`);
+              if (
+                q.options.length < 2 ||
+                q.options.length > 10 ||
+                q.options.some((o) => !o.trim())
+              )
+                return setError(
+                  `Question ${i + 1}: provide 2–10 non-empty answer options.`,
+                );
+              if (
+                q.correctAnswerIndex < 0 ||
+                q.correctAnswerIndex >= q.options.length
+              )
+                return setError(
+                  `Question ${i + 1}: select a valid correct answer.`,
+                );
+            }
+            onSave({
+              ...body,
+              data: {
+                ...data,
+                questions: data.questions.map((q) => ({
+                  ...q,
+                  question: q.question.trim(),
+                  options: q.options.map((o) => o.trim()),
+                })),
+              },
+            });
+          } else if (!data.pieces.length) {
+            setError(
+              "Upload an image to generate the puzzle tiles before saving.",
+            );
+          } else onSave(body);
         }}
       >
+        <p className="form-required-note">
+          <span className="required-mark">*</span> Required field. Optional
+          sections can be left empty.
+        </p>
+        <Notice error>{error}</Notice>
         <Field
           label="Title"
           value={body.title}
@@ -243,21 +301,77 @@ export function ContentEditor({ value, game, busy, onSave, onClose }) {
                   }
                   required
                 />
-                <label className="field">
-                  Answer options (one per line)
-                  <textarea
-                    value={q.options.join("\n")}
-                    onChange={(e) =>
-                      row("questions", i, "options", e.target.value.split("\n"))
+                <div className="question-options">
+                  {q.options.map((option, optionIndex) => (
+                    <div className="option-row" key={optionIndex}>
+                      <Field
+                        label={`Answer option ${optionIndex + 1}`}
+                        value={option}
+                        required
+                        maxLength={400}
+                        onChange={(e) =>
+                          row(
+                            "questions",
+                            i,
+                            "options",
+                            q.options.map((o, j) =>
+                              j === optionIndex ? e.target.value : o,
+                            ),
+                          )
+                        }
+                      />
+                      <Button
+                        type="button"
+                        className="secondary small"
+                        disabled={q.options.length <= 2 || busy}
+                        aria-label={`Remove option ${optionIndex + 1} from question ${i + 1}`}
+                        onClick={() =>
+                          setBody((b) => ({
+                            ...b,
+                            data: {
+                              ...b.data,
+                              questions: b.data.questions.map((question, j) =>
+                                j !== i
+                                  ? question
+                                  : {
+                                      ...question,
+                                      options: question.options.filter(
+                                        (_, k) => k !== optionIndex,
+                                      ),
+                                      correctAnswerIndex:
+                                        question.correctAnswerIndex ===
+                                        optionIndex
+                                          ? 0
+                                          : question.correctAnswerIndex >
+                                              optionIndex
+                                            ? question.correctAnswerIndex - 1
+                                            : question.correctAnswerIndex,
+                                    },
+                              ),
+                            },
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    className="secondary small"
+                    disabled={q.options.length >= 10 || busy}
+                    onClick={() =>
+                      row("questions", i, "options", [...q.options, ""])
                     }
-                    rows={4}
-                    required
-                  />
-                </label>
+                  >
+                    Add answer option
+                  </Button>
+                </div>
                 <label className="field">
-                  Correct answer
+                  Correct answer <span className="required-mark">*</span>
                   <select
                     value={q.correctAnswerIndex}
+                    required
                     onChange={(e) =>
                       row(
                         "questions",
@@ -269,7 +383,7 @@ export function ContentEditor({ value, game, busy, onSave, onClose }) {
                   >
                     {q.options.map((option, index) => (
                       <option value={index} key={index}>
-                        {index + 1}. {option}
+                        {index + 1}. {option || "Enter this option above"}
                       </option>
                     ))}
                   </select>

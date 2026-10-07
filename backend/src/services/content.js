@@ -53,8 +53,8 @@ const hint = z
 const question = z
   .object({
     id: z.string().min(1).max(100),
-    question: text.min(1),
-    options: z.array(z.string().min(1).max(400)).min(2).max(10),
+    question: text.trim().min(1),
+    options: z.array(z.string().trim().min(1).max(400)).min(2).max(10),
     correctAnswerIndex: z.number().int().min(0).max(9),
     points,
     clueId: z.string().optional(),

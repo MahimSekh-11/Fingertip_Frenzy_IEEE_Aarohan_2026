@@ -262,6 +262,7 @@ export function Profile() {
       title="Your profile"
       subtitle="Your identity across the assessment arena."
     >
+      <Notice error>{r.error}</Notice>
       <Card className="profile-card">
         <span className="avatar large">{user.name[0]}</span>
         <h2>{user.name}</h2>
@@ -271,7 +272,7 @@ export function Profile() {
             "Roll number": user.rollNo,
             "Phone number": user.phoneNo,
             Email: user.email || "Not provided",
-            Team: r.data?.team?.name || "No team yet",
+            Team: r.loading ? "Loading team…" : r.error ? "Team unavailable" : r.data?.team?.name || "No team yet",
           }).map(([k, v]) => (
             <React.Fragment key={k}>
               <dt>{k}</dt>

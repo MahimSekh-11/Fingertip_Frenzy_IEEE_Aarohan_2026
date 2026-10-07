@@ -5,7 +5,7 @@ export function PuzzleUpload({ onSave }) {
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   return (
-    <Card>
+    <Card id="puzzle-upload">
       <h2>Build a puzzle from an image</h2>
       <p>
         Upload PNG, JPEG or WebP up to 1 MB. The server crops every tile and

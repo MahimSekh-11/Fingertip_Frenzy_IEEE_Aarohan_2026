@@ -275,7 +275,7 @@ textarea {
   min-width: 0;
   margin-left: 235px;
 }
-.platform aside {
+.platform.workspace > aside {
   width: 235px;
   position: fixed;
   inset: 0 auto 0 0;
@@ -286,7 +286,7 @@ textarea {
   display: flex;
   flex-direction: column;
 }
-.platform aside .brand {
+.platform.workspace > aside .brand {
   padding: 0 5px;
 }
 .nav-label {
@@ -296,13 +296,13 @@ textarea {
   letter-spacing: 0.12em;
   margin: 35px 13px 10px;
 }
-.platform aside nav {
+.platform.workspace > aside nav {
   display: flex;
   flex-direction: column;
   gap: 4px;
   overflow: auto;
 }
-.platform aside nav a {
+.platform.workspace > aside nav a {
   display: flex;
   align-items: center;
   gap: 11px;
@@ -312,10 +312,10 @@ textarea {
   font-size: 12px;
   font-weight: 550;
 }
-.platform aside nav a:hover {
+.platform.workspace > aside nav a:hover {
   background: #f4f7fa;
 }
-.platform aside nav a.active {
+.platform.workspace > aside nav a.active {
   background: #eaf3f9;
   color: #12618f;
 }
@@ -1175,7 +1175,7 @@ td code {
   }
 }
 @media (max-width: 900px) {
-  .platform aside {
+  .platform.workspace > aside {
     width: 210px;
   }
   .platform .workspace-main {
@@ -1221,12 +1221,12 @@ td code {
   }
 }
 @media (max-width: 650px) {
-  .platform aside {
+  .platform.workspace > aside {
     transform: translateX(-100%);
     transition: transform 0.2s;
     width: 240px;
   }
-  .platform aside.open {
+  .platform.workspace > aside.open {
     transform: translateX(0);
   }
   .platform .workspace-main {

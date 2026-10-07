@@ -96,6 +96,7 @@ export const GameSession = model(
     scope: String,
     attempt: Number,
     retryGranted: { type: Boolean, default: false },
+    testMode: { type: Boolean, default: false },
     status: {
       type: String,
       enum: ["NOT_STARTED", "IN_PROGRESS", "COMPLETED", "ABANDONED"],

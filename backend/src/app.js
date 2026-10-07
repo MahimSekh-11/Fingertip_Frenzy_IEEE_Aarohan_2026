@@ -113,7 +113,9 @@ app.use((err, req, res, _next) => {
   res.status(status).json({
     message:
       status === 400
-        ? "Please check your input."
+        ? err.name === "ZodError"
+          ? `Check ${[...new Set(err.issues.map((issue) => ({ teamCode: "team code", teamName: "team name", name: "name", rollNo: "roll number", phoneNo: "phone number", email: "email", password: "password" })[issue.path[0]]).filter(Boolean))].join(", ") || "the highlighted fields"}. ${err.issues[0]?.message || "Fill in the required fields."}`
+          : err.message || "Fill in the required fields."
         : err.code === 11000
           ? "This roll number, phone number or code is already registered."
           : status < 500

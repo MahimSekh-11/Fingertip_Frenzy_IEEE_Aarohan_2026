@@ -9,8 +9,10 @@ export function Notice({ children, error = false }) {
     </div>
   ) : null;
 }
-export const Card = ({ children, className = "" }) => (
-  <section className={`card ${className}`}>{children}</section>
+export const Card = ({ children, className = "", ...props }) => (
+  <section {...props} className={`card ${className}`}>
+    {children}
+  </section>
 );
 export const Badge = ({ children }) => (
   <span className={"badge " + String(children).toLowerCase()}>
@@ -21,7 +23,19 @@ export function Field({ label, ...props }) {
   const id = React.useId();
   return (
     <label className="field" htmlFor={id}>
-      <span>{label}</span>
+      <span>
+        {label}
+        {props.required && (
+          <span
+            className="required-mark"
+            title="Required"
+            aria-hidden="true"
+          >
+            {" "}
+            *
+          </span>
+        )}
+      </span>
       <input id={id} {...props} />
     </label>
   );
@@ -51,7 +65,10 @@ export function useResource(load, deps = []) {
   useEffect(() => {
     let alive = true;
     setLoading(true);
-    load()
+    setData(null);
+    setError("");
+    Promise.resolve()
+      .then(load)
       .then((d) => {
         if (alive) {
           setData(d);

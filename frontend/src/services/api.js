@@ -17,8 +17,14 @@ export async function request(path, options = {}) {
     ...options,
     body: options.body ? JSON.stringify(options.body) : undefined,
   });
-  const data = await res.json();
-  if (!res.ok)
-    throw new Error(data.message || "Request failed. Please try again.");
+  let data;
+  try { data = await res.json(); }
+  catch { throw new Error(`The server returned an unreadable response (${res.status}). Please try again.`); }
+  if (!res.ok) {
+    const error = new Error(data.message || "Request failed. Please try again.");
+    error.status = res.status;
+    error.code = data.code;
+    throw error;
+  }
   return data;
 }

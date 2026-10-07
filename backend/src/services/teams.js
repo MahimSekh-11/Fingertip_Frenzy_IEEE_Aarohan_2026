@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { User, Team, GameSession } from "../models/index.js";
 import { transaction } from "../config/db.js";
 import { platformSettings } from "./settings.js";
@@ -6,6 +6,29 @@ import { fail } from "./errors.js";
 export const teamCode = () =>
   `FF-${randomBytes(6).toString("hex").toUpperCase()}`;
 export async function teamFor(user, session) {
+  if (user.role === "ADMIN") {
+    const ghosts = ["Y", "Z"].map((role) =>
+      createHash("sha256")
+        .update(`test:${user._id}:${role}`)
+        .digest("hex")
+        .slice(0, 24),
+    );
+    return {
+      _id: user._id,
+      name: "Administrator test arena",
+      code: "TEST ONLY",
+      leaderId: user._id,
+      memberIds: [user._id, ...ghosts],
+      testMode: true,
+      members: [
+        { _id: user._id, name: user.name },
+        ...ghosts.map((_id, i) => ({
+          _id,
+          name: `Test player ${["Y", "Z"][i]}`,
+        })),
+      ],
+    };
+  }
   const team =
     user.teamId &&
     (await Team.findOne({

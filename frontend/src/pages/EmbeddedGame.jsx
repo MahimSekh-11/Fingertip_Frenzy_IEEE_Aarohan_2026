@@ -3,10 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Shell } from "../components/Shell";
 import { Button, Notice } from "../components/ui";
 import { catalog } from "./Home";
+import { useAuth } from "../components/Auth";
+import { AdminTestControls } from "../components/AdminTestControls";
 export function EmbeddedGame() {
   const { gameId } = useParams(),
     [loaded, setLoaded] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  React.useEffect(() => setLoaded(false), [gameId]);
   if (!["memory", "calculator"].includes(gameId))
     return (
       <Shell title="Challenge unavailable">
@@ -17,8 +21,13 @@ export function EmbeddedGame() {
   return (
     <Shell
       title={catalog.find((g) => g.id === gameId).name}
-      subtitle="Original game experience · Shared platform account"
+      subtitle={
+        user?.role === "ADMIN"
+          ? "Administrator practice arena"
+          : "Play with your team account"
+      }
     >
+      {user?.role === "ADMIN" && <AdminTestControls game={gameId} />}
       <Notice>{!loaded ? "Loading the arena…" : ""}</Notice>
       <iframe
         key={gameId}
@@ -29,8 +38,15 @@ export function EmbeddedGame() {
         sandbox="allow-scripts allow-same-origin allow-top-navigation-by-user-activation"
         onLoad={() => setLoaded(true)}
       />
-      <Button className="secondary" onClick={() => navigate("/dashboard")}>
-        Return to dashboard
+      <Button
+        className="secondary"
+        onClick={() =>
+          navigate(
+            user?.role === "ADMIN" ? `/admin/games/${gameId}` : "/dashboard",
+          )
+        }
+      >
+        Return to {user?.role === "ADMIN" ? "game settings" : "dashboard"}
       </Button>
     </Shell>
   );

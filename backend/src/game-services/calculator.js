@@ -151,6 +151,9 @@ export function advanceCalculator(
   // Presence is a renewable lease, persisted in MongoDB and shared across function instances.
   const priorPresence = s.presence[uid] || 0;
   s.presence[uid] = now + 5000;
+  if (session.testMode) {
+    for (const id of team.memberIds) s.presence[String(id)] = now + 5000;
+  }
   const allOnline =
     team.memberIds.length === 3 &&
     team.memberIds.every((id) => (s.presence[String(id)] || 0) > now);
@@ -173,6 +176,7 @@ export function advanceCalculator(
   );
   if (
     live &&
+    !session.testMode &&
     s.hold === null &&
     s.deadline &&
     (!allOnline || onlineBoundary < now)
@@ -189,7 +193,7 @@ export function advanceCalculator(
   const role = Object.keys(s.roles).find((key) => s.roles[key] === uid);
   if (
     event.type === "role" &&
-    s.phase === "ASSIGN" &&
+    (s.phase === "ASSIGN" || session.testMode) &&
     ["X", "Y", "Z"].includes(event.role) &&
     role
   ) {
@@ -209,6 +213,7 @@ export function advanceCalculator(
   }
   if (
     event.type === "digit" &&
+    (!event.questionId || event.questionId === s.question?.id) &&
     s.phase === "PLAYING" &&
     s.hold === null &&
     role
@@ -267,6 +272,7 @@ export function calculatorView(session, team, members, user, now = Date.now()) {
   const s = session.state,
     q = s.question;
   return {
+    testMode: Boolean(session.testMode),
     team_id: String(team._id),
     team: team.name,
     code: team.code,

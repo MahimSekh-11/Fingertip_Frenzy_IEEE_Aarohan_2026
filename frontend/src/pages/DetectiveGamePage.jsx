@@ -587,7 +587,7 @@ export function DetectiveGamePage() {
         ) : (
           /* Active Investigation View */
           <div
-            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}
+            className="detective-layout"
           >
             {/* Left Column: Clue & Evidence */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
