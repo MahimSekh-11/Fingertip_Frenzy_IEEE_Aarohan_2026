@@ -416,7 +416,11 @@ export function AdminGame() {
     [edit, setEdit] = useState(null),
     [remove, setRemove] = useState(null);
   const r = useResource(
-    () => request(`/admin/games/${gameId}?page=${page}`).then(data => ({ ...data, gameId })),
+    () =>
+      request(`/admin/games/${gameId}?page=${page}`).then((data) => ({
+        ...data,
+        gameId,
+      })),
     [gameId, page],
   );
   useEffect(() => {
@@ -505,7 +509,9 @@ export function AdminGame() {
               <Card>
                 <h2>Attempt register</h2>
                 <p>
-                  Reset grants a retry and invalidates that attempt’s result.
+                  Answers are scored automatically. Reset removes the selected
+                  attempt’s score and grants a retry; Memory resets only that
+                  participant.
                 </p>
                 <div className="attempt-list">
                   {d.sessions.rows.length ? (
@@ -534,7 +540,8 @@ export function AdminGame() {
                               );
                           }}
                         >
-                          Reset attempt
+                          Reset {gameId === "memory" ? "participant" : "team"}{" "}
+                          attempt
                         </Button>
                       </div>
                     ))
@@ -691,40 +698,23 @@ export function AdminResults({ gameId }) {
       ),
     [gameId, page],
   );
-  async function correct(row) {
-    const score = window.prompt(
-      `New score (0–${row.maximum})`,
-      String(row.score),
-    );
-    if (score === null) return;
-    const reason = window.prompt("Reason for correction");
-    if (!reason) return;
+  async function reset(row) {
+    if (
+      !window.confirm(
+        `Reset ${row.gameId} for ${row.gameId === "memory" ? row.userName : row.teamName}? This removes this attempt's score and allows a retry.`,
+      )
+    )
+      return;
+    setError("");
     setBusy(true);
     try {
-      await request(`/admin/results/${row._id}`, {
-        method: "PATCH",
-        body: { score: Number(score), reason },
-      });
-      r.reload();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function invalidate(row) {
-    const reason = window.prompt(
-      "Reason for " +
-        (row.valid ? "invalidating" : "restoring") +
-        " this result",
-    );
-    if (!reason) return;
-    setBusy(true);
-    try {
-      await request(`/admin/results/${row._id}`, {
-        method: "PATCH",
-        body: { valid: !row.valid, reason },
-      });
+      await request(
+        `/admin/games/${row.gameId}/sessions/${row.sessionId}/reset`,
+        {
+          method: "POST",
+          body: { reason: "Administrator granted a retry from results" },
+        },
+      );
       r.reload();
     } catch (e) {
       setError(e.message);
@@ -735,7 +725,7 @@ export function AdminResults({ gameId }) {
   return (
     <Card>
       <div className="table-toolbar">
-        <h2>Score review</h2>
+        <h2>Automatic results</h2>
         <a
           className="button secondary"
           href={`/api/admin/export/results?page=${page}`}
@@ -755,7 +745,7 @@ export function AdminResults({ gameId }) {
                 <th>Team / user</th>
                 <th>Score</th>
                 <th>Time</th>
-                <th>Validity</th>
+                <th>Scoring status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -774,23 +764,20 @@ export function AdminResults({ gameId }) {
                   </td>
                   <td>{row.completionTime.toFixed(1)}s</td>
                   <td>
-                    <Badge>{row.valid ? "VALID" : "INVALID"}</Badge>
+                    <Badge>
+                      {row.valid ? "Automatically checked" : "Excluded"}
+                    </Badge>
                   </td>
                   <td>
                     <div className="actions">
                       <Button
                         busy={busy}
+                        disabled={!row.valid}
                         className="secondary small"
-                        onClick={() => correct(row)}
+                        onClick={() => reset(row)}
                       >
-                        Correct
-                      </Button>
-                      <Button
-                        busy={busy}
-                        className="secondary small"
-                        onClick={() => invalidate(row)}
-                      >
-                        {row.valid ? "Invalidate" : "Restore"}
+                        Reset {row.gameId === "memory" ? "participant" : "team"}{" "}
+                        attempt
                       </Button>
                     </div>
                   </td>

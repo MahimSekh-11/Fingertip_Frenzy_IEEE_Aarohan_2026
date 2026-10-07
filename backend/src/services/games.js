@@ -8,15 +8,24 @@ import {
   calculatorView,
 } from "../game-services/calculator.js";
 import { fail } from "./errors.js";
+import { puzzleData, detectiveData } from "./content.js";
 export function assertAvailable(config, now = Date.now()) {
   const reason = availabilityReason(config, now);
   if (reason) fail(403, reason);
 }
 export function availabilityReason(config, now = Date.now()) {
-  if (!config.enabled) return "The organizer has paused this game. Please contact the event desk.";
-  if ([config.startAt, config.endAt].some(value => value && !Number.isFinite(+new Date(value)))) return "The game schedule needs an organizer correction.";
-  if (config.startAt && now < +new Date(config.startAt)) return `This game opens at ${new Date(config.startAt).toISOString()}.`;
-  if (config.endAt && now > +new Date(config.endAt)) return "This game's entry window has closed. Please contact the event desk.";
+  if (!config.enabled)
+    return "The organizer has paused this game. Please contact the event desk.";
+  if (
+    [config.startAt, config.endAt].some(
+      (value) => value && !Number.isFinite(+new Date(value)),
+    )
+  )
+    return "The game schedule needs an organizer correction.";
+  if (config.startAt && now < +new Date(config.startAt))
+    return `This game opens at ${new Date(config.startAt).toISOString()}.`;
+  if (config.endAt && now > +new Date(config.endAt))
+    return "This game's entry window has closed. Please contact the event desk.";
   return null;
 }
 export const scopeFor = (game, user) =>
@@ -44,6 +53,7 @@ export async function finishResult(doc, session) {
     {
       $setOnInsert: {
         sessionId: doc._id,
+        valid: true,
         teamId: doc.teamId,
         userId: doc.userId,
         gameId: doc.gameId,
@@ -115,6 +125,11 @@ export async function startGame(game, user) {
         .lean();
       if (!contents.length)
         fail(409, "No puzzles have been published by the event organizer.");
+      if (contents.some((c) => !puzzleData.safeParse(c.data).success))
+        fail(
+          409,
+          "A published puzzle is incomplete. Ask the organizer to correct and save its image and tiles.",
+        );
       state.puzzles = contents.map((c) => ({
         ...c.data,
         id: String(c._id),
@@ -122,7 +137,8 @@ export async function startGame(game, user) {
       }));
       state.index = 0;
       state.attempts = [];
-      state.expiresAt = +startedAt + cfg.durationSeconds * 1000;
+      state.expiresAt =
+        user.role === "ADMIN" ? null : +startedAt + cfg.durationSeconds * 1000;
       maximum = state.puzzles.reduce((a, p) => a + p.points, 0);
     }
     if (game === "detective") {
@@ -130,10 +146,15 @@ export async function startGame(game, user) {
         .sort({ order: 1 })
         .session(tx)
         .lean();
-      if (!content?.data.questions?.length)
+      if (!content?.data?.questions?.length)
         fail(
           409,
           "No detective case has been published by the event organizer.",
+        );
+      if (!detectiveData.safeParse(content.data).success)
+        fail(
+          409,
+          "The published Detective case is incomplete. Ask the organizer to correct and save its questions and clues.",
         );
       state.case = {
         ...content.data,
@@ -143,7 +164,8 @@ export async function startGame(game, user) {
       state.index = 0;
       state.answers = [];
       state.hintsUsed = [];
-      state.expiresAt = +startedAt + cfg.durationSeconds * 1000;
+      state.expiresAt =
+        user.role === "ADMIN" ? null : +startedAt + cfg.durationSeconds * 1000;
       maximum = state.case.questions.reduce((a, q) => a + q.points, 0);
     }
     [result] = await GameSession.create(
@@ -185,7 +207,11 @@ export async function mutateGame(game, user, fn) {
     if (!doc) fail(409, "Start the game first.");
     if (doc.status !== "IN_PROGRESS")
       fail(409, "This attempt has already finished.");
-    if (doc.state.expiresAt && Date.now() > doc.state.expiresAt) {
+    if (
+      !doc.testMode &&
+      doc.state.expiresAt &&
+      Date.now() > doc.state.expiresAt
+    ) {
       doc.status = "COMPLETED";
       doc.completedAt = new Date(doc.state.expiresAt);
       payload = { expired: true };
@@ -208,7 +234,9 @@ export async function calculatorState(user, event = {}) {
   }).sort({ attempt: -1 });
   if (recent.status === "ABANDONED") {
     await startGame("calculator", user);
-    recent = await GameSession.findOne({ scope, gameId: "calculator" }).sort({ attempt: -1 });
+    recent = await GameSession.findOne({ scope, gameId: "calculator" }).sort({
+      attempt: -1,
+    });
   }
   if (recent.status === "COMPLETED") {
     const team = await teamFor(user),
@@ -236,6 +264,7 @@ export async function getCurrent(game, user) {
   if (doc?.status === "ABANDONED") return { team, doc: null };
   if (
     doc?.status === "IN_PROGRESS" &&
+    !doc.testMode &&
     doc.state.expiresAt &&
     Date.now() > doc.state.expiresAt
   ) {
@@ -252,6 +281,7 @@ export function puzzleView(doc, team, user) {
     .sort(() => Math.random() - 0.5);
   return {
     success: true,
+    testMode: Boolean(doc?.testMode),
     hasStarted: !!doc,
     isLeader: String(team.leaderId) === String(user._id),
     teamName: team.name,
@@ -264,11 +294,10 @@ export function puzzleView(doc, team, user) {
           score: doc.score,
           currentPuzzleIndex: doc.state.index,
           totalPuzzles: doc.state.puzzles.length,
-          remainingSeconds: Math.max(
-            0,
-            Math.ceil((doc.state.expiresAt - Date.now()) / 1000),
-          ),
-          expiresAt: new Date(doc.state.expiresAt),
+          remainingSeconds: doc.testMode
+            ? null
+            : Math.max(0, Math.ceil((doc.state.expiresAt - Date.now()) / 1000)),
+          expiresAt: doc.testMode ? null : new Date(doc.state.expiresAt),
           startTime: doc.startedAt,
           attemptsCount: doc.state.attempts.length,
           attempts: doc.state.attempts,
@@ -306,6 +335,7 @@ export function detectiveView(doc) {
     })),
     attempt: {
       id: doc._id,
+      testMode: Boolean(doc.testMode),
       score: doc.score,
       currentQuestionIndex: doc.state.index,
       status:
@@ -313,7 +343,7 @@ export function detectiveView(doc) {
           ? "TIME_EXPIRED"
           : doc.status,
       hintsUsed: doc.state.hintsUsed,
-      expiresAt: new Date(doc.state.expiresAt),
+      expiresAt: doc.testMode ? null : new Date(doc.state.expiresAt),
       startedAt: doc.startedAt,
       completedAt: doc.completedAt,
     },

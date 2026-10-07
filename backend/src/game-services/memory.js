@@ -25,10 +25,11 @@ export function beginMemoryCountdown(session, now = Date.now()) {
   const cfg = session.config.stages[`stage${active.stage}`];
   active.answerFrom =
     now + 3000 + cfg.numbersCount * cfg.displayIntervalSeconds * 1000;
-  active.deadline =
-    active.answerFrom +
-    cfg.numbersCount * (cfg.responseIntervalSeconds * 1000 + 500) +
-    15000;
+  active.deadline = session.testMode
+    ? null
+    : active.answerFrom +
+      cfg.numbersCount * (cfg.responseIntervalSeconds * 1000 + 500) +
+      15000;
   return active;
 }
 export function finishStage(session, stage, entered, now = Date.now()) {
@@ -43,7 +44,10 @@ export function finishStage(session, stage, entered, now = Date.now()) {
     entered.some((d) => !Number.isInteger(d) || d < 0 || d > 9)
   )
     fail(400, "Invalid digit sequence.");
-  const points = now > active.deadline ? 0 : memoryScore(active.shown, entered);
+  const points =
+    !session.testMode && now > active.deadline
+      ? 0
+      : memoryScore(active.shown, entered);
   session.state.stages.push({
     stage,
     score: points,

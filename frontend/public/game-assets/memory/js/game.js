@@ -28,6 +28,7 @@ class GameEngine {
 
   async loadConfig() {
     const data = await window.platformApi("/games/memory/config");
+    this.testMode = Boolean(data.testMode);
     for (let stage = 1; stage <= 3; stage++) {
       const cfg = data.stages["stage" + stage];
       this.stageConfigs[stage] = {
@@ -80,15 +81,9 @@ class GameEngine {
     this._countdownPending = false;
     const briefingButton = document.querySelector("#stage-brief-screen button");
     if (briefingButton) briefingButton.disabled = false;
-    const stage = await window.platformApi("/games/memory/stage/start", {
-      stage: stageNum,
-    });
-    const config = (this.stageConfigs[stageNum] = {
-      count: stage.config.numbersCount,
-      displayInterval: stage.config.displayIntervalSeconds * 1000,
-      responseInterval: stage.config.responseIntervalSeconds * 1000,
-    });
-    this.activeSequence = stage.sequence;
+    const config = this.stageConfigs[stageNum];
+    this._stagePrepared = false;
+    this.activeSequence = [];
     this.userSequence = [];
     this.currentInputIndex = 0;
 
@@ -115,7 +110,7 @@ class GameEngine {
     document.getElementById("brief-display-time").textContent =
       `${config.displayInterval / 1000}s Interval`;
     document.getElementById("brief-response-time").textContent =
-      `${config.responseInterval / 1000}s Answer Time`;
+      this.testMode ? "Unlimited Answer Time" : `${config.responseInterval / 1000}s Answer Time`;
 
     window.soundEngine.init();
   }
@@ -131,7 +126,18 @@ class GameEngine {
       window.visionEngine.onFrameUpdate = null;
       window.visionEngine.onDigitLocked = null;
       const ready = await window.visionEngine.init(document.getElementById("webcam-video"), document.getElementById("vision-canvas"));
-      if (ready) await window.visionEngine.startCamera();
+      if (!ready || !(await window.visionEngine.startCamera()))
+        throw new Error("Hand gestures are required. Allow camera access and wait for hand tracking to be ready before starting.");
+      if (!this._stagePrepared) {
+        const stage = await window.platformApi("/games/memory/stage/start", { stage: this.currentStage });
+        this.activeSequence = stage.sequence;
+        this.stageConfigs[this.currentStage] = {
+          count: stage.config.numbersCount,
+          displayInterval: stage.config.displayIntervalSeconds * 1000,
+          responseInterval: stage.config.responseIntervalSeconds * 1000,
+        };
+        this._stagePrepared = true;
+      }
       button.textContent = "Starting…";
       await window.platformApi("/games/memory/stage/countdown", {});
     } catch (e) {
@@ -300,29 +306,6 @@ class GameEngine {
     this.renderStageSequenceGrid();
     this.startAnswerStep(0);
 
-    // Manual Confirm Digit Button (Fallback)
-    const lockBtn = document.getElementById("btn-manual-lock");
-    if (lockBtn) {
-      lockBtn.onclick = () => {
-        if (!this.isStepLocked) {
-          const d = window.visionEngine.currentDigit;
-          if (d === null) { window.app.showToast("No digit detected. Show a hand or use keyboard keys 0–9.", "info"); return; }
-          this.handleDigitLocked(d, d === this.expectedDigit);
-        }
-      };
-    }
-
-    // Keyboard Fallback (1-9)
-    if (this._keyListener)
-      document.removeEventListener("keydown", this._keyListener);
-    this._keyListener = (e) => {
-      if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && !this.isStepLocked) {
-        const val = parseInt(e.key);
-        this.handleDigitLocked(val, val === this.expectedDigit);
-      }
-    };
-    document.addEventListener("keydown", this._keyListener);
-
     // Frame update for HUD elements & instant correct gesture detection
     window.visionEngine.onDigitLocked = null; // Controlled by game engine
     window.visionEngine.onFrameUpdate = (data) => {
@@ -341,10 +324,10 @@ class GameEngine {
       .then((camStarted) => {
         if (!camStarted) {
           console.warn(
-            "Camera could not be started or permission denied. Fallback keyboard controls active.",
+            "Camera could not be started. Hand gestures are required.",
           );
           const statusPill = document.getElementById("camera-hand-status");
-          if (statusPill) statusPill.textContent = "Fallback Mode (Keys 1-9)";
+          if (statusPill) statusPill.textContent = "Camera required";
         }
       })
       .catch((err) => {
@@ -461,7 +444,7 @@ class GameEngine {
     if (statusIcon) statusIcon.textContent = "⏱️";
     if (statusText)
       statusText.innerHTML =
-        "Hold <strong>correct gesture</strong> continuously for <strong>1.0s</strong> to confirm & advance &middot; Else waits for timer";
+        `Hold <strong>correct gesture</strong> continuously for <strong>1.0s</strong> to confirm & advance &middot; ${this.testMode ? "Unlimited practice" : "Otherwise the last gesture is recorded at timeout"}`;
 
     // Reset central detected digit and clear green tick mark
     const centralCard = document.getElementById("central-detected-card");
@@ -485,6 +468,10 @@ class GameEngine {
     if (timerFill) timerFill.style.width = "100%";
     if (timerCard) timerCard.className = "central-timer-card timer-normal";
 
+    if (this.testMode) {
+      if (timerDigits) timerDigits.textContent = "∞";
+      return;
+    }
     this.inputTimer = setInterval(() => {
       const elapsed = Date.now() - startTime;
       const left = Math.max(0, (duration - elapsed) / 1000);
@@ -534,7 +521,6 @@ class GameEngine {
     const digitDisplay = document.getElementById("central-detected-digit");
     const handsBreakdown = document.getElementById("central-hands-breakdown");
     const cameraHandStatus = document.getElementById("camera-hand-status");
-    const lockBtn = document.getElementById("btn-manual-lock");
     const statusIcon = document.getElementById("central-status-icon");
     const statusText = document.getElementById("central-status-text");
 
@@ -557,13 +543,11 @@ class GameEngine {
         .join(" | ");
       if (handsBreakdown)
         handsBreakdown.textContent = `${handStr} (Fingers: ${data.totalExtended})`;
-      if (lockBtn) lockBtn.textContent = `Confirm Digit (${detected})`;
     } else {
       if (digitDisplay && !this.isStepLocked) digitDisplay.textContent = "--";
       if (cameraHandStatus) cameraHandStatus.textContent = "Waiting for hand";
       if (handsBreakdown)
         handsBreakdown.textContent = "Show hand in camera view (0 to 9)";
-      if (lockBtn) lockBtn.textContent = "Confirm Digit (0)";
     }
 
     // 1-second continuous hold threshold requirement:
@@ -640,11 +624,11 @@ class GameEngine {
         if (detected !== null) {
           if (holdBox) holdBox.classList.add("holding-wrong");
           if (holdTitle) {
-            holdTitle.innerHTML = `Showing: <strong>${detected}</strong> &middot; (Waiting for target gesture or timer expiry)`;
+            holdTitle.innerHTML = `Showing: <strong>${detected}</strong> &middot; ${this.testMode ? "Unlimited practice" : "Waiting for target gesture or timeout"}`;
           }
           if (statusIcon) statusIcon.textContent = "✋";
           if (statusText) {
-            statusText.innerHTML = `Showing: <strong>${detected}</strong> &middot; Keep trying until timer expires or show target gesture`;
+            statusText.innerHTML = `Showing: <strong>${detected}</strong> &middot; ${this.testMode ? "Keep trying; no time limit" : "Keep trying until timeout or show the target gesture"}`;
           }
         } else {
           if (holdBox) holdBox.classList.remove("holding-wrong");
@@ -653,7 +637,7 @@ class GameEngine {
           }
           if (statusIcon) statusIcon.textContent = "⏱️";
           if (statusText) {
-            statusText.innerHTML = `Hold <strong>correct answer</strong> for <strong>1.0s</strong> to confirm & advance &middot; Else waits for timer`;
+            statusText.innerHTML = `Hold <strong>correct answer</strong> for <strong>1.0s</strong> to confirm & advance &middot; ${this.testMode ? "Unlimited practice" : "Otherwise the last gesture is recorded at timeout"}`;
           }
         }
       }
@@ -735,10 +719,6 @@ class GameEngine {
   // 7. Finish Stage, Calculate Score, and Submit
   async finishStage() {
     if (this.inputTimer) clearInterval(this.inputTimer);
-    if (this._keyListener) {
-      document.removeEventListener("keydown", this._keyListener);
-      this._keyListener = null;
-    }
     window.visionEngine.stopCamera();
     const cvEl = document.getElementById("opencv-box-screen");
     if (cvEl) {

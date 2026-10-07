@@ -260,10 +260,10 @@ function render() {
 }
 function tickTimer() {
   if (!S) return; const live = ['COUNTDOWN', 'PLAYING'].includes(S.phase);
-  const left = live ? (S.paused ? S.remaining : Math.max(0, Math.ceil(rem0 - (Date.now() - t0) / 1000))) : null; // display only; the server owns the clock (frozen while paused)
+  const left = S.testMode ? null : live ? (S.paused ? S.remaining : Math.max(0, Math.ceil(rem0 - (Date.now() - t0) / 1000))) : null; // display only; the server owns the clock (frozen while paused)
   if (S.phase === 'COUNTDOWN') $('#startSub').textContent = S.paused ? 'Paused: waiting for everyone to be online…' : `Starting in ${left}…`;
-  $('#timer').textContent = left === null ? '–' : (S.paused ? '⏸ ' + left : S.phase === 'PLAYING' && left === 0 ? 'TIME UP' : left);
-  $('#timer').classList.toggle('low', S.phase === 'PLAYING' && !S.paused && left <= 5); $('#timer').classList.toggle('paused', !!S.paused);
+  $('#timer').textContent = left === null ? (S.testMode && live ? '∞' : '–') : (S.paused ? '⏸ ' + left : S.phase === 'PLAYING' && left === 0 ? 'TIME UP' : left);
+  $('#timer').classList.toggle('low', S.phase === 'PLAYING' && !S.testMode && !S.paused && left <= 5); $('#timer').classList.toggle('paused', !!S.paused);
 }
 setInterval(tickTimer, 200);
 

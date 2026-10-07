@@ -513,7 +513,11 @@ export function PuzzleGamePage() {
             </div>
             <div className={`pg-stat time ${timeTone}`}>
               <strong>
-                {remaining === null ? "--:--" : formatClock(remaining)}
+                {remaining === null
+                  ? gameState?.testMode && active
+                    ? "∞"
+                    : "--:--"
+                  : formatClock(remaining)}
               </strong>
               <span>Time left</span>
             </div>
@@ -622,8 +626,10 @@ export function PuzzleGamePage() {
             <Trophy size={44} className="pg-gold" />
             <h2>Round 1 complete, {teamName}!</h2>
             <p className="pg-muted">
-              Every puzzle is solved. Your score is locked in. Round 2
-              qualification is announced once the leaderboard is finalised.
+              Every puzzle is solved.{" "}
+              {gameState?.testMode
+                ? "Practice complete; competition scores are unchanged."
+                : "Your score was checked automatically. Round 2 is now unlocked."}
             </p>
             <div className="pg-stats center">
               <div className="pg-stat">
@@ -637,9 +643,17 @@ export function PuzzleGamePage() {
             </div>
             <button
               className="pg-btn primary lg"
-              onClick={() => navigate("/dashboard")}
+              onClick={() =>
+                navigate(
+                  gameState?.testMode
+                    ? "/admin/games/puzzle"
+                    : "/games/detective",
+                )
+              }
             >
-              Back to dashboard
+              {gameState?.testMode
+                ? "Back to game controls"
+                : "Continue to Detective Case"}
             </button>
           </section>
         )}
@@ -665,9 +679,17 @@ export function PuzzleGamePage() {
             </div>
             <button
               className="pg-btn ghost lg"
-              onClick={() => navigate("/dashboard")}
+              onClick={() =>
+                navigate(
+                  gameState?.testMode
+                    ? "/admin/games/puzzle"
+                    : "/games/detective",
+                )
+              }
             >
-              Back to dashboard
+              {gameState?.testMode
+                ? "Back to game controls"
+                : "Continue to Detective Case"}
             </button>
           </section>
         )}
@@ -726,7 +748,10 @@ export function PuzzleGamePage() {
                 <div className={`pg-board-wrap ${shake ? "shake" : ""}`}>
                   <div
                     className="pg-board"
-                    style={{ gridTemplateColumns: `repeat(${gridCols}, 1fr)` }}
+                    style={{
+                      gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+                      gridTemplateRows: `repeat(${Number(puzzle.gridRows) || Math.ceil(slotCount / gridCols)}, minmax(0, 1fr))`,
+                    }}
                     role="group"
                     aria-label="Puzzle board"
                   >

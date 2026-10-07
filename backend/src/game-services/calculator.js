@@ -120,7 +120,7 @@ export function initializeCalculator(members, _cfg) {
     checked: null,
   };
 }
-function nextQuestion(s, cfg, now, last = null) {
+function nextQuestion(s, cfg, now, last = null, untimed = false) {
   s.n++;
   s.values = {};
   s.checked = null;
@@ -135,7 +135,7 @@ function nextQuestion(s, cfg, now, last = null) {
   s.question = generateQuestion(cfg.sequence[s.n - 1], s.n, s.history, cfg);
   s.history.push(s.question.hash);
   s.phase = s.n === 1 ? "ASSIGN" : "PLAYING";
-  s.deadline = s.n === 1 ? null : now + s.question.time_limit * 1000;
+  s.deadline = s.n === 1 || untimed ? null : now + s.question.time_limit * 1000;
   s.changed = now;
 }
 export function advanceCalculator(
@@ -161,9 +161,15 @@ export function advanceCalculator(
     s.roles = Object.fromEntries(
       team.memberIds.map((id, i) => ["XYZ"[i], String(id)]),
     );
-    nextQuestion(s, cfg, now);
+    nextQuestion(s, cfg, now, null, session.testMode);
   }
-  if (s.phase === "ASSIGN" && s.n === 0) nextQuestion(s, cfg, now);
+  if (s.phase === "ASSIGN" && s.n === 0)
+    nextQuestion(s, cfg, now, null, session.testMode);
+  if (session.testMode && ["COUNTDOWN", "PLAYING"].includes(s.phase)) {
+    s.phase = "PLAYING";
+    s.deadline = null;
+    s.hold = null;
+  }
   const live = ["COUNTDOWN", "PLAYING"].includes(s.phase);
   // A request arriving after a presence lease lapses must pause at the lease boundary,
   // not at the later request time. Preserve elapsed time before that boundary.
@@ -207,8 +213,8 @@ export function advanceCalculator(
     String(team.leaderId) === uid &&
     allOnline
   ) {
-    s.phase = "COUNTDOWN";
-    s.deadline = now + cfg.countdown * 1000;
+    s.phase = session.testMode ? "PLAYING" : "COUNTDOWN";
+    s.deadline = session.testMode ? null : now + cfg.countdown * 1000;
     session.startedAt = new Date(now);
   }
   if (
@@ -239,7 +245,7 @@ export function advanceCalculator(
       s.changed = now;
     } else if (s.phase === "PLAYING") {
       s.log.push({ n: s.n, pts: 0, ok: false });
-      nextQuestion(s, cfg, now, { ok: false, timeUp: true });
+      nextQuestion(s, cfg, now, { ok: false, timeUp: true }, session.testMode);
     }
   }
   if (
@@ -253,12 +259,13 @@ export function advanceCalculator(
     if (key !== s.checked) {
       s.checked = key;
       if (satisfies(s.question, ...digits)) {
-        const bonus =
-            Math.max(0, Math.ceil((s.deadline - now) / 1000)) * cfg.speed,
+        const bonus = session.testMode
+            ? 0
+            : Math.max(0, Math.ceil((s.deadline - now) / 1000)) * cfg.speed,
           pts = cfg.base[s.question.level] + bonus;
         s.log.push({ n: s.n, pts, ok: true });
         session.score += pts;
-        nextQuestion(s, cfg, now, { ok: true, pts, bonus });
+        nextQuestion(s, cfg, now, { ok: true, pts, bonus }, session.testMode);
       }
     }
   }
@@ -280,10 +287,12 @@ export function calculatorView(session, team, members, user, now = Date.now()) {
     score: session.score,
     log: s.log,
     attempts: 0,
-    remaining: Math.max(
-      0,
-      Math.ceil((s.hold ?? (s.deadline ? s.deadline - now : 0)) / 1000),
-    ),
+    remaining: session.testMode
+      ? null
+      : Math.max(
+          0,
+          Math.ceil((s.hold ?? (s.deadline ? s.deadline - now : 0)) / 1000),
+        ),
     values: s.values,
     res: null,
     n: s.n,

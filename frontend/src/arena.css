@@ -74,6 +74,7 @@
 .platform.arena-workspace .pg-layout>.pg-col{height:100%}
 .platform.arena-workspace .pg-board-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,.62fr);grid-template-rows:4px 6px auto minmax(0,1fr) auto auto auto;height:100%;padding:16px;gap:10px;background:#0d192b;border-color:#263a55;border-radius:16px}
 .platform.arena-workspace .pg-clock,.platform.arena-workspace .pg-steps,.platform.arena-workspace .pg-puzzle-head{grid-column:1/-1}
+.platform.arena-workspace .pg-clock{grid-row:1}.platform.arena-workspace .pg-steps{grid-row:2}.platform.arena-workspace .pg-puzzle-head{grid-row:3}
 .platform.arena-workspace .pg-board-wrap{grid-column:1;grid-row:4/8;align-self:center;width:min(100%,calc(100dvh - 300px));max-width:480px;min-width:100px}
 .platform.arena-workspace .pg-tray{grid-column:2;grid-row:4;align-self:stretch;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding:14px;background:#111f34;border:1px solid #2b405b;border-radius:12px}
 .platform.arena-workspace .pg-tray-head{display:block}.platform.arena-workspace .pg-tray-head strong{display:block;font-size:13px;margin-bottom:6px}.platform.arena-workspace .pg-tray-head span{font-size:11px;line-height:1.5}
@@ -96,3 +97,44 @@
  .platform.arena-workspace .detective-layout{grid-template-columns:1fr;gap:8px}.platform.arena-workspace .detective-layout>div>div{padding:10px!important}.platform.arena-workspace .game-frame{border-radius:12px}
 }
 @media(prefers-reduced-motion:reduce){.platform.arena-workspace *{scroll-behavior:auto;transition:none!important}}
+
+:root{color-scheme:dark}
+.platform.arena-workspace .detective-clue-tabs{display:flex;flex-wrap:wrap;gap:6px;flex-shrink:0;padding:2px}
+.platform.arena-workspace .detective-clue-tabs button{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:9px;border:1px solid #304762;background:#14243a;color:#b9cde4;font-size:12px;white-space:normal;text-align:left}
+.platform.arena-workspace .detective-clue-tabs button[aria-pressed=true]{background:#123d46;color:#9bf2e9;border-color:#3d8e95}
+.platform.arena-workspace .detective-clue-tabs button:focus-visible{outline:2px solid #67e8df;outline-offset:2px}
+.platform.arena-workspace .detective-evidence-column>div{flex-shrink:0}
+.platform.arena-workspace .detective-exhibit{color:#e2e8f0;overflow-wrap:anywhere}
+.platform.arena-workspace .detective-exhibit img{display:block;object-fit:contain;max-width:100%}
+
+@media(max-width:700px){
+.platform.arena-workspace .detective-layout{grid-template-rows:minmax(160px,.75fr) minmax(180px,1fr)}
+.platform.arena-workspace .detective-clue-tabs{flex-wrap:nowrap;overflow-x:auto;min-height:38px;scrollbar-width:thin}
+.platform.arena-workspace .detective-clue-tabs button{flex-shrink:0;white-space:nowrap;font-size:11px;padding:6px 9px}
+}
+
+/* Keep actual exhibit text in the visible evidence area, rather than below tall metadata. */
+.platform.arena-workspace .detective-open-clues{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;flex-shrink:0;background:#123d46;color:#9bf2e9;border:1px solid #3d8e95;border-radius:9px;padding:7px 12px;font-size:12px}
+.platform.arena-workspace .detective-layout>.detective-evidence-column{display:flex;flex-direction:column;min-height:0;overflow:hidden;background:#0d1627;border:1px solid #2b405b;border-radius:14px;padding:12px;gap:8px!important}
+.detective-evidence-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-shrink:0;color:#e2e8f0}
+.detective-evidence-heading strong{display:flex;align-items:center;gap:8px;font-size:14px}
+.detective-evidence-heading button{padding:7px;display:grid;place-items:center;background:#14243a;color:#e2e8f0;border:1px solid #304762;border-radius:8px}
+.platform.arena-workspace .detective-evidence-column .detective-clue-tabs,.detective-evidence-dialog .detective-clue-tabs{display:flex;flex-wrap:nowrap;overflow-x:auto;min-height:34px;gap:6px;padding:2px;flex-shrink:0}
+.detective-evidence-dialog .detective-clue-tabs button{padding:7px 10px;border-radius:8px;border:1px solid #304762;background:#14243a;color:#b9cde4;white-space:nowrap}
+.detective-evidence-dialog .detective-clue-tabs button[aria-pressed=true]{background:#123d46;color:#9bf2e9;border-color:#3d8e95}
+.platform.arena-workspace .detective-clue-tabs button{white-space:nowrap;flex-shrink:0}
+.detective-evidence-card{display:flex;flex-direction:column;min-height:0;flex:1;gap:7px}
+.detective-evidence-meta{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#67e8df}
+.detective-evidence-card h2{font-size:15px;line-height:1.3;color:#f8fafc;margin:0;flex-shrink:0}
+.platform.arena-workspace .detective-evidence-column .detective-exhibit,.detective-evidence-dialog .detective-exhibit{flex:1;min-height:0;overflow:auto;background:#070d1a;border:1px solid #263a55;border-radius:10px;padding:12px;color:#e2e8f0}
+.detective-exhibit pre{font:13px/1.6 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#e2e8f0;margin:0}
+.detective-exhibit img{display:block;width:100%;max-height:65vh;object-fit:contain}
+.detective-exhibit a{color:#67e8df;font-size:12px;display:inline-block;margin-top:8px}
+.detective-exhibit p{color:#b9cde4;line-height:1.5;margin:8px 0}.detective-exhibit:focus-visible{outline:2px solid #67e8df;outline-offset:-2px}
+.detective-evidence-dialog{width:min(880px,calc(100vw - 24px));height:min(740px,calc(100dvh - 32px));max-width:none;max-height:none;padding:18px;background:#0d1627;color:#e2e8f0;border:1px solid #3a536f;border-radius:16px;box-sizing:border-box}
+.detective-evidence-dialog[open]{display:flex;flex-direction:column;gap:12px}
+.detective-evidence-dialog::backdrop{background:#020712cc;backdrop-filter:blur(4px)}
+.detective-no-clues{color:#b9cde4;line-height:1.6}
+@media(max-width:700px){.platform.arena-workspace .detective-layout{grid-template-rows:minmax(140px,.75fr) minmax(180px,1fr)}.platform.arena-workspace .detective-layout>.detective-evidence-column{padding:8px;gap:5px!important}.detective-evidence-dialog{padding:12px}}
+
+.detective-evidence-dialog{position:fixed;inset:0;margin:auto}

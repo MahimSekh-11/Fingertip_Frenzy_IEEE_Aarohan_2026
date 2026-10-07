@@ -26,11 +26,7 @@ export function Field({ label, ...props }) {
       <span>
         {label}
         {props.required && (
-          <span
-            className="required-mark"
-            title="Required"
-            aria-hidden="true"
-          >
+          <span className="required-mark" title="Required" aria-hidden="true">
             {" "}
             *
           </span>
@@ -57,7 +53,7 @@ export function Loading() {
 export function Empty({ children }) {
   return <div className="empty">{children || "No records yet."}</div>;
 }
-export function useResource(load, deps = []) {
+export function useResource(load, deps = [], { refreshMs = 0 } = {}) {
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
     [loading, setLoading] = useState(true),
@@ -67,20 +63,34 @@ export function useResource(load, deps = []) {
     setLoading(true);
     setData(null);
     setError("");
-    Promise.resolve()
-      .then(load)
-      .then((d) => {
+    let pending = false;
+    async function refresh() {
+      if (pending) return;
+      pending = true;
+      try {
+        const next = await load();
         if (alive) {
-          setData(d);
+          setData(next);
           setError("");
         }
-      })
-      .catch((e) => alive && setError(e.message))
-      .finally(() => alive && setLoading(false));
+      } catch (e) {
+        if (alive) setError(e.message);
+      } finally {
+        pending = false;
+        if (alive) setLoading(false);
+      }
+    }
+    refresh();
+    const interval = refreshMs
+      ? setInterval(() => {
+          if (!document.hidden) refresh();
+        }, refreshMs)
+      : null;
     return () => {
       alive = false;
+      clearInterval(interval);
     };
-  }, [...deps, version]);
+  }, [...deps, version, refreshMs]);
   return { data, error, loading, reload: () => setVersion((v) => v + 1) };
 }
 export function ConfirmDialog({ title, children, onConfirm, onClose, busy }) {

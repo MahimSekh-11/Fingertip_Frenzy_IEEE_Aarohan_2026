@@ -16,11 +16,16 @@ import { request } from "../services/api";
 import { catalog } from "./Home";
 export function Dashboard({ gamesOnly = false }) {
   const { user } = useAuth(),
-    r = useResource(() =>
-      Promise.all([request("/games"), request("/teams/me")]).then(([a, b]) => ({
-        ...a,
-        ...b,
-      })),
+    r = useResource(
+      () =>
+        Promise.all([request("/games"), request("/teams/me")]).then(
+          ([a, b]) => ({
+            ...a,
+            ...b,
+          }),
+        ),
+      [],
+      { refreshMs: 5000 },
     );
   return (
     <Shell
@@ -112,7 +117,12 @@ export function Dashboard({ gamesOnly = false }) {
                     </span>
                   </div>
                   {state?.available === false ? (
-                    <><p className="round-lock">{state.unavailableReason}</p><Button disabled className="secondary">Awaiting organizer</Button></>
+                    <>
+                      <p className="round-lock">{state.unavailableReason}</p>
+                      <Button disabled className="secondary">
+                        Awaiting organizer
+                      </Button>
+                    </>
                   ) : state?.locked && state.status === "NOT_STARTED" ? (
                     <>
                       <p className="round-lock">
@@ -274,7 +284,11 @@ export function Profile() {
             "Roll number": user.rollNo,
             "Phone number": user.phoneNo,
             Email: user.email || "Not provided",
-            Team: r.loading ? "Loading team…" : r.error ? "Team unavailable" : r.data?.team?.name || "No team yet",
+            Team: r.loading
+              ? "Loading team…"
+              : r.error
+                ? "Team unavailable"
+                : r.data?.team?.name || "No team yet",
           }).map(([k, v]) => (
             <React.Fragment key={k}>
               <dt>{k}</dt>

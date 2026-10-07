@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { DetectiveEvidence } from "../components/DetectiveEvidence";
 import { AppShell } from "../components/AppShell";
 import { API_BASE_URL, apiFetch } from "../services/api";
 import {
@@ -30,6 +31,8 @@ export function DetectiveGamePage() {
   const [errorData, setErrorData] = useState(null);
   const [caseData, setCaseData] = useState(null);
   const [clues, setClues] = useState([]);
+  const [selectedClue, setSelectedClue] = useState(null);
+  const [clueReaderOpen, setClueReaderOpen] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [hints, setHints] = useState([]);
   const [attempt, setAttempt] = useState(null);
@@ -53,11 +56,17 @@ export function DetectiveGamePage() {
 
       if (!res.ok || !data.success) {
         setErrorData({
-          title: "Round 2 Access Restricted",
+          title:
+            res.status >= 500
+              ? "Round 2 connection unavailable"
+              : res.status === 409
+                ? "Round 2 needs organizer setup"
+                : "Round 2 Access Restricted",
           message:
             data.message ||
             "You do not have access to Round 2: Detective Case.",
           code: data.code || "LOCKED",
+          retryable: res.status >= 500,
         });
         return;
       }
@@ -77,6 +86,7 @@ export function DetectiveGamePage() {
       setErrorData({
         title: "Connection Error",
         message: err.message || "Could not connect to the server.",
+        retryable: true,
       });
     } finally {
       setLoading(false);
@@ -89,7 +99,10 @@ export function DetectiveGamePage() {
 
   // Live Authoritative Countdown Timer
   useEffect(() => {
-    if (!attempt || ["COMPLETED", "TIME_EXPIRED"].includes(attempt.status)) {
+    if (
+      !attempt?.expiresAt ||
+      ["COMPLETED", "TIME_EXPIRED"].includes(attempt.status)
+    ) {
       clearInterval(timerRef.current);
       return;
     }
@@ -276,6 +289,11 @@ export function DetectiveGamePage() {
           >
             {errorData.message}
           </p>
+          {errorData.retryable && (
+            <button className="ieee-portal-btn" onClick={fetchCaseData}>
+              Retry connection
+            </button>
+          )}
           <button
             onClick={() => navigate("/dashboard")}
             className="ieee-portal-btn"
@@ -296,6 +314,11 @@ export function DetectiveGamePage() {
   const currentQIndex = attempt?.currentQuestionIndex || 0;
   const currentQ = questions[currentQIndex];
   const currentClue =
+    clues.find(
+      (c) =>
+        selectedClue?.questionIndex === currentQIndex &&
+        (c.id || c._id) === selectedClue.id,
+    ) ||
     clues.find((c) => (c.id || c._id) === currentQ?.clueId) ||
     clues[currentQIndex] ||
     clues[0];
@@ -312,7 +335,10 @@ export function DetectiveGamePage() {
 
   return (
     <AppShell>
-      <div className="detective-arena" style={{ maxWidth: 1100, margin: "0 auto" }}>
+      <div
+        className="detective-arena"
+        style={{ maxWidth: 1100, margin: "0 auto" }}
+      >
         {/* Header HUD Bar */}
         <div
           style={{
@@ -403,24 +429,51 @@ export function DetectiveGamePage() {
                   padding: "6px 14px",
                   borderRadius: 999,
                   background:
-                    remainingSeconds <= 180
+                    !attempt?.testMode && remainingSeconds <= 180
                       ? "rgba(248, 113, 113, 0.12)"
                       : "rgba(56, 189, 248, 0.1)",
-                  border: `1px solid ${remainingSeconds <= 180 ? "rgba(248, 113, 113, 0.35)" : "rgba(56, 189, 248, 0.3)"}`,
-                  color: remainingSeconds <= 180 ? "#f87171" : "#38bdf8",
+                  border: `1px solid ${!attempt?.testMode && remainingSeconds <= 180 ? "rgba(248, 113, 113, 0.35)" : "rgba(56, 189, 248, 0.3)"}`,
+                  color:
+                    !attempt?.testMode && remainingSeconds <= 180
+                      ? "#f87171"
+                      : "#38bdf8",
                   fontSize: 13,
                   fontWeight: 700,
                   fontFamily: "monospace",
                 }}
               >
                 <Clock size={15} />
-                <span>{formatClock(remainingSeconds)}</span>
+                <span>
+                  {attempt?.testMode
+                    ? "∞ · Practice"
+                    : formatClock(remainingSeconds)}
+                </span>
               </div>
             )}
           </div>
         </div>
 
         {/* Finished / Completed Screen */}
+        <button
+          className="detective-open-clues"
+          type="button"
+          onClick={() => setClueReaderOpen(true)}
+        >
+          <FileText size={16} /> View clues ({clues.length})
+        </button>
+        {clueReaderOpen && (
+          <DetectiveEvidence
+            clues={clues}
+            currentClue={currentClue}
+            onSelect={(clue) =>
+              setSelectedClue({
+                id: clue.id || clue._id,
+                questionIndex: currentQIndex,
+              })
+            }
+            onClose={() => setClueReaderOpen(false)}
+          />
+        )}
         {isFinished ? (
           <div
             style={{
@@ -569,11 +622,19 @@ export function DetectiveGamePage() {
               }}
             >
               <button
-                onClick={() => navigate("/dashboard")}
+                onClick={() =>
+                  navigate(
+                    attempt?.testMode
+                      ? "/admin/games/detective"
+                      : "/games/calculator",
+                  )
+                }
                 className="ieee-portal-btn"
                 style={{ padding: "12px 24px" }}
               >
-                Return to Dashboard
+                {attempt?.testMode
+                  ? "Back to game controls"
+                  : "Continue to AI Calculator"}
               </button>
               <button
                 onClick={() => navigate("/team")}
@@ -586,139 +647,17 @@ export function DetectiveGamePage() {
           </div>
         ) : (
           /* Active Investigation View */
-          <div
-            className="detective-layout"
-          >
-            {/* Left Column: Clue & Evidence */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div
-                style={{
-                  padding: 20,
-                  background: "#0d1627",
-                  border: "1px solid #1d2a44",
-                  borderRadius: 14,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: 12,
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: "#38bdf8",
-                      padding: "3px 10px",
-                      background: "rgba(56, 189, 248, 0.1)",
-                      border: "1px solid rgba(56, 189, 248, 0.25)",
-                      borderRadius: 999,
-                    }}
-                  >
-                    EVIDENCE FILE #{currentClue?.order || currentQIndex + 1}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: "#64748b",
-                      textTransform: "uppercase",
-                      fontWeight: 700,
-                    }}
-                  >
-                    TYPE: {currentClue?.evidenceType || "TEXT"}
-                  </span>
-                </div>
-
-                <h2
-                  style={{
-                    fontSize: 17,
-                    fontWeight: 700,
-                    color: "#f8fafc",
-                    margin: "0 0 8px",
-                  }}
-                >
-                  {currentClue?.title || "Case Evidence"}
-                </h2>
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "#94a3b8",
-                    lineHeight: 1.55,
-                    margin: "0 0 16px",
-                  }}
-                >
-                  {currentClue?.description}
-                </p>
-
-                {/* Evidence Render */}
-                <div
-                  style={{
-                    padding: 14,
-                    background: "#070d1a",
-                    border: "1px solid #1d2a44",
-                    borderRadius: 10,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "#64748b",
-                      marginBottom: 8,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <FileText size={13} /> INVESTIGATION EXHIBIT
-                  </div>
-
-                  {currentClue?.evidenceType === "image" ? (
-                    <div>
-                      <img
-                        src={currentClue.evidence}
-                        alt={currentClue.title}
-                        style={{
-                          width: "100%",
-                          maxHeight: 320,
-                          objectFit: "cover",
-                          borderRadius: 8,
-                          border: "1px solid #1d2a44",
-                        }}
-                      />
-                    </div>
-                  ) : currentClue?.evidenceType === "document" ? (
-                    <pre
-                      style={{
-                        margin: 0,
-                        fontFamily: "ui-monospace, monospace",
-                        fontSize: 12,
-                        color: "#cbd5e1",
-                        lineHeight: 1.6,
-                        whiteSpace: "pre-wrap",
-                        overflowX: "auto",
-                      }}
-                    >
-                      {currentClue.evidence}
-                    </pre>
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: "#e2e8f0",
-                        lineHeight: 1.6,
-                        whiteSpace: "pre-wrap",
-                      }}
-                    >
-                      {currentClue?.evidence}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          <div className="detective-layout">
+            <DetectiveEvidence
+              clues={clues}
+              currentClue={currentClue}
+              onSelect={(clue) =>
+                setSelectedClue({
+                  id: clue.id || clue._id,
+                  questionIndex: currentQIndex,
+                })
+              }
+            />
 
             {/* Right Column: Investigation Question & Hints */}
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -796,7 +735,15 @@ export function DetectiveGamePage() {
                           transition: "all 0.15s ease",
                         }}
                       >
-                        <input className="arena-radio" type="radio" name="investigation-answer" aria-label={opt} checked={isSelected} disabled={submitting} onChange={() => setSelectedOption(idx)} />
+                        <input
+                          className="arena-radio"
+                          type="radio"
+                          name="investigation-answer"
+                          aria-label={opt}
+                          checked={isSelected}
+                          disabled={submitting}
+                          onChange={() => setSelectedOption(idx)}
+                        />
                         <span
                           style={{
                             width: 26,

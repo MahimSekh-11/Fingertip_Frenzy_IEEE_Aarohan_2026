@@ -64,7 +64,7 @@ await mongoose.connection.transaction(async (tx) => {
     [
       {
         gameId: "puzzle",
-        title: "Original Vortex asset Â· UI test",
+        title: "Image Formation - UI test",
         published: true,
         order: 0,
         data: {

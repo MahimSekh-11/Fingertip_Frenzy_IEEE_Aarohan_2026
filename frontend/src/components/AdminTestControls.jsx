@@ -47,13 +47,15 @@ export function AdminTestControls({ game }) {
     });
   return (
     <details className="admin-test-panel arena-practice">
-      <summary>Practice controls <span>Private attempt · scores excluded</span></summary>
+      <summary>
+        Practice controls <span>Untimed practice; scores excluded</span>
+      </summary>
       <div className="table-toolbar">
         <div>
           <strong>Admin test mode</strong>
           <p>
-            Private practice attempts. Scores do not enter the leaderboard or
-            team results.
+            Unlimited practice with no answer deadline. Scores do not enter the
+            leaderboard or team results.
           </p>
         </div>
         <div className="actions">
@@ -100,7 +102,7 @@ export function AdminTestControls({ game }) {
               disabled={state.phase !== "ASSIGN"}
               onClick={() => event({ type: "start" })}
             >
-              Start countdown
+              Start practice
             </Button>
           </div>
           <div className="test-digit-controls">

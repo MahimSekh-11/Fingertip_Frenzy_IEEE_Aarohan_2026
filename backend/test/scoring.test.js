@@ -18,21 +18,45 @@ import { defaults, schemas } from "../src/game-services/config.js";
 import { mergeSettings } from "../src/services/settings.js";
 import { availabilityReason } from "../src/services/games.js";
 test("Partial Memory settings retain organizer restrictions and recover missing stages", () => {
-  const config = mergeSettings(defaults.memory, { enabled: false, stages: { stage1: { numbersCount: 3 } } });
+  const config = mergeSettings(defaults.memory, {
+    enabled: false,
+    stages: { stage1: { numbersCount: 3 } },
+  });
   assert.equal(config.enabled, false);
   assert.equal(config.stages.stage1.numbersCount, 3);
   assert.equal(config.stages.stage1.responseIntervalSeconds, 5);
   assert.deepEqual(config.stages.stage2, defaults.memory.stages.stage2);
   assert.ok(availabilityReason(config));
-  assert.deepEqual(mergeSettings(defaults.memory, { stages: null }).stages, defaults.memory.stages);
+  assert.deepEqual(
+    mergeSettings(defaults.memory, { stages: null }).stages,
+    defaults.memory.stages,
+  );
 });
 test("Game entry reports paused, scheduled, closed and invalid schedules consistently", () => {
   const now = Date.parse("2026-10-07T12:00:00Z");
   assert.equal(availabilityReason(defaults.memory, now), null);
-  assert.match(availabilityReason({ ...defaults.memory, enabled: false }, now), /paused/);
-  assert.match(availabilityReason({ ...defaults.memory, startAt: "2026-10-08T12:00:00Z" }, now), /opens/);
-  assert.match(availabilityReason({ ...defaults.memory, endAt: "2026-10-06T12:00:00Z" }, now), /closed/);
-  assert.match(availabilityReason({ ...defaults.memory, startAt: "invalid" }, now), /correction/);
+  assert.match(
+    availabilityReason({ ...defaults.memory, enabled: false }, now),
+    /paused/,
+  );
+  assert.match(
+    availabilityReason(
+      { ...defaults.memory, startAt: "2026-10-08T12:00:00Z" },
+      now,
+    ),
+    /opens/,
+  );
+  assert.match(
+    availabilityReason(
+      { ...defaults.memory, endAt: "2026-10-06T12:00:00Z" },
+      now,
+    ),
+    /closed/,
+  );
+  assert.match(
+    availabilityReason({ ...defaults.memory, startAt: "invalid" }, now),
+    /correction/,
+  );
 });
 import { normalized, rankRows } from "../src/services/leaderboard.js";
 test("Memory preserves no-repeat digits, positional score and all three stages", () => {
@@ -134,4 +158,37 @@ test("Game settings reject unsupported controls and unreasonable values", () => 
     }).success,
     false,
   );
+});
+
+test("Admin practice has no answer deadlines; competition Memory still expires", () => {
+  for (const testMode of [true, false]) {
+    const doc = {
+      testMode,
+      config: defaults.memory,
+      state: { stage: 0, stages: [], active: null },
+      score: 0,
+    };
+    const { sequence: shown } = beginStage(doc, 1);
+    beginMemoryCountdown(doc, 1000);
+    assert.equal(doc.state.active.deadline === null, testMode);
+    assert.equal(
+      finishStage(doc, 1, shown, 10 ** 9),
+      testMode ? shown.length : 0,
+    );
+  }
+  const team = { memberIds: ["a", "b", "c"], leaderId: "a" };
+  const doc = {
+    testMode: true,
+    state: initializeCalculator(team.memberIds),
+    config: defaults.calculator,
+    score: 0,
+  };
+  advanceCalculator(doc, team, { _id: "a" }, {}, 1000);
+  advanceCalculator(doc, team, { _id: "a" }, { type: "start" }, 1000);
+  assert.equal(doc.state.phase, "PLAYING");
+  const id = doc.state.question.id;
+  advanceCalculator(doc, team, { _id: "a" }, {}, 10 ** 9);
+  assert.equal(doc.state.question.id, id);
+  assert.equal(doc.state.deadline, null);
+  assert.equal(doc.state.log.length, 0);
 });

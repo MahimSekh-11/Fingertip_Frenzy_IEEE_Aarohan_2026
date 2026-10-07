@@ -21,7 +21,7 @@ import {
   beginMemoryCountdown,
   finishStage,
 } from "../game-services/memory.js";
-import { GameSession } from "../models/index.js";
+import { GameSession, Content } from "../models/index.js";
 const router = Router();
 router.use(requireAuth);
 router.get(
@@ -38,12 +38,21 @@ router.get(
           })
             .sort({ attempt: -1 })
             .select("status score"));
+        const missingContent =
+          ["puzzle", "detective"].includes(id) &&
+          (!doc || doc.status === "ABANDONED") &&
+          !(await Content.exists({ gameId: id, published: true }));
+        const unavailableReason =
+          availabilityReason(config) ||
+          (missingContent
+            ? `The organizer has not published ${id === "puzzle" ? "a puzzle" : "a Detective case"} yet.`
+            : null);
         return {
           id,
           name: names[id],
           enabled: config.enabled,
-          available: !availabilityReason(config),
-          unavailableReason: availabilityReason(config),
+          available: !unavailableReason,
+          unavailableReason,
           weight: config.weight,
           locked: Boolean(await roundLock(id, req.user)),
           status: doc?.status || "NOT_STARTED",
@@ -92,6 +101,7 @@ router.get(
   asyncRoute(async (req, res) => {
     const { doc } = await getCurrent("memory", req.user);
     res.json({
+      testMode: req.user.role === "ADMIN",
       stages: (doc?.config || (await gameSettings("memory"))).stages,
     });
   }),

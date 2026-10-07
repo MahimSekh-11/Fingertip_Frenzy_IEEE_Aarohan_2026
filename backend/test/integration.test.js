@@ -352,6 +352,13 @@ test("Original Puzzle mechanics, server-side answer check, single completion and
   );
   assert.equal((await models.Result.findOne({ gameId: "puzzle" })).score, 100);
 });
+test("Puzzle completion automatically unlocks Detective for every teammate", async () => {
+  for (const player of players.slice(0, 3)) {
+    const cards = (await player.get("/api/games")).body.games;
+    assert.equal(cards.find((g) => g.id === "detective").locked, false);
+    assert.equal(cards.find((g) => g.id === "calculator").locked, true);
+  }
+});
 test("Detective hides answers/hints and rejects question replay and out-of-order answers", async () => {
   const r = await call(admin, "post", "/admin/games/detective/content", {
     title: "Test-only case fixture",
@@ -426,6 +433,14 @@ test("Detective hides answers/hints and rejects question replay and out-of-order
     180,
   );
 });
+test("Detective completion automatically unlocks Calculator", async () => {
+  assert.equal(
+    (await players[0].get("/api/games")).body.games.find(
+      (g) => g.id === "calculator",
+    ).locked,
+    false,
+  );
+});
 test("Calculator shared team state and equation scoring are authoritative in MongoDB", async () => {
   let users = await models.User.find({ teamId: team._id }).sort({ rollNo: 1 });
   await call(players[0], "post", "/games/calculator/start", {});
@@ -465,6 +480,14 @@ test("Calculator shared team state and equation scoring are authoritative in Mon
   assert.equal(state.body.phase, "FINISHED");
   assert.ok(
     (await models.Result.findOne({ gameId: "calculator" })).score >= 100,
+  );
+});
+test("Calculator completion automatically unlocks Memory", async () => {
+  assert.equal(
+    (await players[1].get("/api/games")).body.games.find(
+      (g) => g.id === "memory",
+    ).locked,
+    false,
   );
 });
 test("Memory uses server-owned sequences, validates time/order and records actual result", async () => {
@@ -528,7 +551,7 @@ test("Memory uses server-owned sequences, validates time/order and records actua
   const result = await models.Result.findOne({ gameId: "memory" });
   assert.equal(result.score, 22);
 });
-test("Global leaderboard aggregates all four games and manual edits are audited", async () => {
+test("Global leaderboard aggregates automatically checked scores and refuses manual edits", async () => {
   const r = await admin.get("/api/leaderboard");
   assert.equal(r.status, 200);
   assert.equal(r.body.rows.length, 2);
@@ -543,32 +566,20 @@ test("Global leaderboard aggregates all four games and manual edits are audited"
     ).status,
     403,
   );
-  assert.equal(
-    (
-      await call(admin, "patch", `/admin/results/${result._id}`, {
-        score: 9999,
-        reason: "Invalid correction",
-      })
-    ).status,
-    400,
-  );
-  assert.equal(
-    (
-      await call(admin, "patch", `/admin/results/${result._id}`, {
-        score: 50,
-        reason: "Verified correction",
-      })
-    ).status,
-    200,
-  );
-  const updated = await admin.get("/api/leaderboard");
-  assert.equal(updated.body.rows[0].scores.puzzle, 50);
-  assert.ok(
-    await models.Audit.exists({
-      action: "CORRECT_RESULT",
-      entityId: String(result._id),
-    }),
-  );
+  for (const change of [{ score: 50 }, { valid: false }]) {
+    assert.equal(
+      (
+        await call(admin, "patch", `/admin/results/${result._id}`, {
+          ...change,
+          reason: "Manual modification refused",
+        })
+      ).status,
+      405,
+    );
+  }
+  const unchanged = await models.Result.findById(result._id);
+  assert.equal(unchanged.score, result.score);
+  assert.equal(unchanged.valid, true);
   assert.equal(
     (
       await call(admin, "patch", `/admin/teams/${team._id}`, {
@@ -609,7 +620,7 @@ test("Only admins see standings and participants receive only their own team sco
     assert.equal(own.status, 200);
     assert.equal(own.body.score.teamId, String(team._id));
     assert.equal(own.body.score.name, "Integration Team");
-    assert.equal(own.body.score.scores.puzzle, 50);
+    assert.equal(own.body.score.scores.puzzle, 100);
     assert.equal(Object.keys(own.body.score.scores).length, 4);
     assert.equal(own.body.score.rank, undefined);
     assert.equal(own.body.rows, undefined);
@@ -619,7 +630,7 @@ test("Only admins see standings and participants receive only their own team sco
   assert.notEqual(other.body.score.teamId, String(team._id));
   assert.equal((await admin.get("/api/admin/leaderboard")).status, 200);
   const filtered = await admin.get("/api/admin/leaderboard?gameId=puzzle");
-  assert.equal(filtered.body.rows[0].total, 50);
+  assert.equal(filtered.body.rows[0].total, 100);
 });
 
 test("Simultaneous first logins cannot overfill a team", async () => {
@@ -982,113 +993,372 @@ test("Admin manages identities and rosters, while team names remain immutable an
 });
 
 test("Reset attempts return usable game states and Detective rejects blank options", async () => {
-  const puzzle = await models.GameSession.findOne({ teamId: team._id, gameId: "puzzle" }).sort({ attempt: -1 });
-  assert.equal((await call(admin, "post", `/admin/games/puzzle/sessions/${puzzle._id}/reset`, { reason: "Verified restart regression" })).status, 200);
-  assert.equal((await players[0].get("/api/v1/game/r1/state")).body.hasStarted, false);
-  assert.equal((await call(players[0], "post", "/v1/game/r1/start", {})).status, 200);
-  const retry = await models.GameSession.findOne({ teamId: team._id, gameId: "puzzle" }).sort({ attempt: -1 });
+  const puzzle = await models.GameSession.findOne({
+    teamId: team._id,
+    gameId: "puzzle",
+  }).sort({ attempt: -1 });
+  assert.equal(
+    (
+      await call(
+        admin,
+        "post",
+        `/admin/games/puzzle/sessions/${puzzle._id}/reset`,
+        { reason: "Verified restart regression" },
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await players[0].get("/api/v1/game/r1/state")).body.hasStarted,
+    false,
+  );
+  assert.equal(
+    (await call(players[0], "post", "/v1/game/r1/start", {})).status,
+    200,
+  );
+  const retry = await models.GameSession.findOne({
+    teamId: team._id,
+    gameId: "puzzle",
+  }).sort({ attempt: -1 });
   for (const item of retry.state.puzzles) {
-    assert.equal((await call(players[0], "post", "/v1/game/r1/submit", { puzzleId: item.id, pieceOrder: item.correctOrder })).status, 200);
+    assert.equal(
+      (
+        await call(players[0], "post", "/v1/game/r1/submit", {
+          puzzleId: item.id,
+          pieceOrder: item.correctOrder,
+        })
+      ).status,
+      200,
+    );
   }
-  const calculator = await models.GameSession.findOne({ teamId: team._id, gameId: "calculator" }).sort({ attempt: -1 });
-  assert.equal((await call(admin, "post", `/admin/games/calculator/sessions/${calculator._id}/reset`, { reason: "Verified restart regression" })).status, 200);
+  const calculator = await models.GameSession.findOne({
+    teamId: team._id,
+    gameId: "calculator",
+  }).sort({ attempt: -1 });
+  assert.equal(
+    (
+      await call(
+        admin,
+        "post",
+        `/admin/games/calculator/sessions/${calculator._id}/reset`,
+        { reason: "Verified restart regression" },
+      )
+    ).status,
+    200,
+  );
   const state = await players[0].get("/api/games/calculator/state");
   assert.equal(state.status, 200);
   assert.equal(state.body.phase, "ASSIGN");
-  const calculatorRetry = await models.GameSession.findOne({ teamId: team._id, gameId: "calculator" }).sort({ attempt: -1 });
+  const calculatorRetry = await models.GameSession.findOne({
+    teamId: team._id,
+    gameId: "calculator",
+  }).sort({ attempt: -1 });
   assert.equal(calculatorRetry.attempt, calculator.attempt + 1);
-  const content = await models.Content.findOne({ gameId: "detective", published: true }).lean();
+  const content = await models.Content.findOne({
+    gameId: "detective",
+    published: true,
+  }).lean();
   content.data.questions[0].options[0] = "   ";
-  assert.equal((await call(admin, "post", "/admin/games/detective/content", { title: "Invalid blank option", published: false, order: 0, data: content.data })).status, 400);
+  assert.equal(
+    (
+      await call(admin, "post", "/admin/games/detective/content", {
+        title: "Invalid blank option",
+        published: false,
+        order: 0,
+        data: content.data,
+      })
+    ).status,
+    400,
+  );
 });
 
 test("Admin Memory controls fill partial settings and student cards agree with entry restrictions", async () => {
-  const previous = await models.GameSetting.findOne({ gameId: "memory" }).lean();
+  const previous = await models.GameSetting.findOne({
+    gameId: "memory",
+  }).lean();
   try {
-    await models.GameSetting.updateOne({ gameId: "memory" }, { $set: { config: { enabled: false, stages: { stage1: { numbersCount: 3 } } } } }, { upsert: true });
+    await models.GameSetting.updateOne(
+      { gameId: "memory" },
+      {
+        $set: {
+          config: { enabled: false, stages: { stage1: { numbersCount: 3 } } },
+        },
+      },
+      { upsert: true },
+    );
     const management = await admin.get("/api/admin/games/memory");
     assert.equal(management.status, 200);
     assert.equal(management.body.settings.enabled, false);
     assert.equal(management.body.settings.stages.stage1.numbersCount, 3);
     assert.equal(management.body.settings.stages.stage3.numbersCount, 9);
     const catalog = await players[0].get("/api/games");
-    const memory = catalog.body.games.find(game => game.id === "memory");
+    const memory = catalog.body.games.find((game) => game.id === "memory");
     assert.equal(memory.available, false);
     assert.match(memory.unavailableReason, /paused/);
     const entry = await players[0].get("/api/games/memory/state");
     assert.equal(entry.status, 403);
     assert.equal(entry.body.message, memory.unavailableReason);
   } finally {
-    if (previous) await models.GameSetting.updateOne({ gameId: "memory" }, { $set: { config: previous.config } });
+    if (previous)
+      await models.GameSetting.updateOne(
+        { gameId: "memory" },
+        { $set: { config: previous.config } },
+      );
     else await models.GameSetting.deleteOne({ gameId: "memory" });
   }
 });
 
 // Keep the sandbox regression at the end: it temporarily disables event games.
+test("Missing and malformed content returns organizer guidance instead of a service failure", async () => {
+  const published = await models.Content.find({
+    gameId: "detective",
+    published: true,
+  }).select("_id");
+  let bad;
+  try {
+    await models.Content.updateMany(
+      { _id: { $in: published.map((c) => c._id) } },
+      { $set: { published: false } },
+    );
+    const cards = await admin.get("/api/games");
+    const detective = cards.body.games.find((g) => g.id === "detective");
+    assert.equal(detective.available, false);
+    assert.match(detective.unavailableReason, /not published/);
+    assert.equal(
+      (await call(admin, "post", "/games/detective/start", {})).status,
+      409,
+    );
+    bad = await models.Content.create({
+      gameId: "detective",
+      title: "Invalid legacy fixture",
+      published: true,
+      order: -100,
+    });
+    assert.equal(
+      (await call(admin, "post", "/games/detective/start", {})).status,
+      409,
+    );
+    await models.Content.deleteOne({ _id: bad._id });
+    bad = null;
+    bad = await models.Content.create({
+      gameId: "puzzle",
+      title: "Incomplete legacy fixture",
+      published: true,
+      data: {},
+      order: -100,
+    });
+    const puzzle = await call(admin, "post", "/games/puzzle/start", {});
+    assert.equal(puzzle.status, 409);
+    assert.match(puzzle.body.message, /incomplete/);
+  } finally {
+    if (bad) await models.Content.deleteOne({ _id: bad._id });
+    await models.Content.updateMany(
+      { _id: { $in: published.map((c) => c._id) } },
+      { $set: { published: true } },
+    );
+  }
+});
 test("Admins can complete all games privately while competition gates and scores stay intact", async () => {
   const resultCount = await models.Result.countDocuments();
   const teamCount = await models.Team.countDocuments();
-  const standings = (await admin.get('/api/admin/leaderboard')).body.rows;
-  for (const gameId of ['puzzle','detective','calculator','memory']) {
-    const config = (await models.GameSetting.findOne({gameId}))?.config || defaults[gameId];
-    await models.GameSetting.updateOne({gameId}, {$set:{config:{...config,enabled:false}}}, {upsert:true});
-    assert.equal((await call(players[0],'post',`/games/${gameId}/start`,{})).status,403);
-    assert.equal((await call(players[0],'post',`/admin/games/${gameId}/test/reset`,{})).status,403);
-    assert.equal((await call(admin,'post',`/games/${gameId}/start`,{})).status,200);
+  const standings = (await admin.get("/api/admin/leaderboard")).body.rows;
+  for (const gameId of ["puzzle", "detective", "calculator", "memory"]) {
+    const config =
+      (await models.GameSetting.findOne({ gameId }))?.config ||
+      defaults[gameId];
+    await models.GameSetting.updateOne(
+      { gameId },
+      { $set: { config: { ...config, enabled: false } } },
+      { upsert: true },
+    );
+    assert.equal(
+      (await call(players[0], "post", `/games/${gameId}/start`, {})).status,
+      403,
+    );
+    assert.equal(
+      (await call(players[0], "post", `/admin/games/${gameId}/test/reset`, {}))
+        .status,
+      403,
+    );
+    assert.equal(
+      (await call(admin, "post", `/games/${gameId}/start`, {})).status,
+      200,
+    );
   }
-  const puzzle = await models.GameSession.findOne({gameId:'puzzle',testMode:true});
+  const puzzle = await models.GameSession.findOne({
+    gameId: "puzzle",
+    testMode: true,
+  });
+  await models.GameSession.updateOne(
+    { _id: puzzle._id },
+    { $set: { "state.expiresAt": Date.now() - 60000 } },
+  );
+  const practicePuzzle = await admin.get("/api/v1/game/r1/state");
+  assert.equal(practicePuzzle.body.session.remainingSeconds, null);
+  assert.equal(practicePuzzle.body.session.status, "IN_PROGRESS");
   for (const p of puzzle.state.puzzles) {
-    const solved = await call(admin,'post','/v1/game/r1/submit',{puzzleId:p.id,pieceOrder:p.correctOrder});
-    assert.equal(solved.status,200);
-    assert.equal(solved.body.isCorrect,true);
+    const solved = await call(admin, "post", "/v1/game/r1/submit", {
+      puzzleId: p.id,
+      pieceOrder: p.correctOrder,
+    });
+    assert.equal(solved.status, 200);
+    assert.equal(solved.body.isCorrect, true);
   }
-  const detective = await models.GameSession.findOne({gameId:'detective',testMode:true});
+  const detective = await models.GameSession.findOne({
+    gameId: "detective",
+    testMode: true,
+  });
+  await models.GameSession.updateOne(
+    { _id: detective._id },
+    { $set: { "state.expiresAt": Date.now() - 60000 } },
+  );
   for (const q of detective.state.case.questions) {
-    assert.equal((await call(admin,'post','/v1/detective/submit-answer',{questionId:q.id,selectedOptionIndex:q.correctAnswerIndex})).status,200);
+    assert.equal(
+      (
+        await call(admin, "post", "/v1/detective/submit-answer", {
+          questionId: q.id,
+          selectedOptionIndex: q.correctAnswerIndex,
+        })
+      ).status,
+      200,
+    );
   }
-  let view = await admin.get('/api/games/calculator/state');
-  assert.equal(view.status,200);
-  assert.equal(view.body.testMode,true);
-  assert.equal(view.body.players.length,3);
-  assert.ok(view.body.players.every(p=>p.online));
-  assert.equal((await call(admin,'post','/games/calculator/event',{type:'start'})).body.phase,'COUNTDOWN');
-  let calculator = await models.GameSession.findOne({gameId:'calculator',testMode:true});
-  calculator.config.sequence=[1]; calculator.markModified('config');
-  calculator.state.phase='PLAYING'; calculator.state.deadline=Date.now()+40000;
-  calculator.markModified('state'); await calculator.save();
-  const stale = await call(admin,'post','/games/calculator/event',{type:'digit',digit:9,conf:1,questionId:'old-question'});
-  assert.equal(stale.status,200); assert.deepEqual(stale.body.values,{});
+  let view = await admin.get("/api/games/calculator/state");
+  assert.equal(view.status, 200);
+  assert.equal(view.body.testMode, true);
+  assert.equal(view.body.players.length, 3);
+  assert.ok(view.body.players.every((p) => p.online));
+  assert.equal(
+    (await call(admin, "post", "/games/calculator/event", { type: "start" }))
+      .body.phase,
+    "PLAYING",
+  );
+  let calculator = await models.GameSession.findOne({
+    gameId: "calculator",
+    testMode: true,
+  });
+  calculator.config.sequence = [1];
+  calculator.markModified("config");
+  calculator.state.phase = "PLAYING";
+  calculator.state.deadline = Date.now() + 40000;
+  calculator.markModified("state");
+  await calculator.save();
+  const stale = await call(admin, "post", "/games/calculator/event", {
+    type: "digit",
+    digit: 9,
+    conf: 1,
+    questionId: "old-question",
+  });
+  assert.equal(stale.status, 200);
+  assert.deepEqual(stale.body.values, {});
   let answer;
-  for(let x=0;x<10&&!answer;x++)for(let y=0;y<10&&!answer;y++)for(let z=0;z<10&&!answer;z++)
-    if(satisfies(calculator.state.question,x,y,z))answer=[x,y,z];
+  for (let x = 0; x < 10 && !answer; x++)
+    for (let y = 0; y < 10 && !answer; y++)
+      for (let z = 0; z < 10 && !answer; z++)
+        if (satisfies(calculator.state.question, x, y, z)) answer = [x, y, z];
   assert.ok(answer);
-  for(const [i,role] of ['X','Y','Z'].entries()) {
-    const switched = await call(admin,'post','/games/calculator/event',{type:'role',role});
-    assert.equal(switched.body.you.role,role);
-    assert.equal((await call(admin,'post','/games/calculator/event',{type:'digit',digit:answer[i],conf:1})).status,200);
+  for (const [i, role] of ["X", "Y", "Z"].entries()) {
+    const switched = await call(admin, "post", "/games/calculator/event", {
+      type: "role",
+      role,
+    });
+    assert.equal(switched.body.you.role, role);
+    assert.equal(
+      (
+        await call(admin, "post", "/games/calculator/event", {
+          type: "digit",
+          digit: answer[i],
+          conf: 1,
+        })
+      ).status,
+      200,
+    );
   }
-  await models.GameSession.updateOne({_id:calculator._id},{$set:{'state.changed':Date.now()-6000}});
-  assert.equal((await admin.get('/api/games/calculator/state')).body.phase,'FINISHED');
-  for(let stage=1;stage<=3;stage++) {
-    const start = await call(admin,'post','/games/memory/stage/start',{stage});
-    assert.equal(start.status,200);
-    await call(admin,'post','/games/memory/stage/countdown',{});
-    await models.GameSession.updateOne({gameId:'memory',testMode:true},{$set:{'state.active.answerFrom':Date.now()-1,'state.active.deadline':Date.now()+20000}});
-    assert.equal((await call(admin,'post','/games/memory/submit',{stage,digits:start.body.sequence})).status,200);
+  await models.GameSession.updateOne(
+    { _id: calculator._id },
+    { $set: { "state.changed": Date.now() - 6000 } },
+  );
+  assert.equal(
+    (await admin.get("/api/games/calculator/state")).body.phase,
+    "FINISHED",
+  );
+  for (let stage = 1; stage <= 3; stage++) {
+    const start = await call(admin, "post", "/games/memory/stage/start", {
+      stage,
+    });
+    assert.equal(start.status, 200);
+    await call(admin, "post", "/games/memory/stage/countdown", {});
+    await models.GameSession.updateOne(
+      { gameId: "memory", testMode: true },
+      {
+        $set: {
+          "state.active.answerFrom": Date.now() - 1,
+          "state.active.deadline": Date.now() + 20000,
+        },
+      },
+    );
+    assert.equal(
+      (
+        await call(admin, "post", "/games/memory/submit", {
+          stage,
+          digits: start.body.sequence,
+        })
+      ).status,
+      200,
+    );
   }
-  assert.equal(await models.GameSession.countDocuments({testMode:true,status:'COMPLETED'}),4);
-  assert.equal(await models.Result.countDocuments(),resultCount);
-  assert.equal(await models.Team.countDocuments(),teamCount);
-  assert.deepEqual((await admin.get('/api/admin/leaderboard')).body.rows,standings);
-  assert.equal((await admin.get('/api/admin/games/puzzle')).body.sessions.rows.some(s=>s.testMode),false);
-  assert.equal((await call(admin,'post','/games/puzzle/start',{})).status,200);
-  assert.equal((await call(admin,'post','/admin/games/puzzle/test/reset',{})).status,200);
-  assert.equal((await call(admin,'post','/games/puzzle/start',{})).status,200);
-  const fresh = await admin.get('/api/v1/game/r1/state');
-  assert.equal(fresh.body.session.score,0);
-  assert.equal(fresh.body.session.attempts.length,0);
+  assert.equal(
+    await models.GameSession.countDocuments({
+      testMode: true,
+      status: "COMPLETED",
+    }),
+    4,
+  );
+  assert.equal(await models.Result.countDocuments(), resultCount);
+  assert.equal(await models.Team.countDocuments(), teamCount);
+  assert.deepEqual(
+    (await admin.get("/api/admin/leaderboard")).body.rows,
+    standings,
+  );
+  assert.equal(
+    (await admin.get("/api/admin/games/puzzle")).body.sessions.rows.some(
+      (s) => s.testMode,
+    ),
+    false,
+  );
+  assert.equal(
+    (await call(admin, "post", "/games/puzzle/start", {})).status,
+    200,
+  );
+  assert.equal(
+    (await call(admin, "post", "/admin/games/puzzle/test/reset", {})).status,
+    200,
+  );
+  assert.equal(
+    (await call(admin, "post", "/games/puzzle/start", {})).status,
+    200,
+  );
+  const fresh = await admin.get("/api/v1/game/r1/state");
+  assert.equal(fresh.body.session.score, 0);
+  assert.equal(fresh.body.session.attempts.length, 0);
   const second = supertest.agent(app);
-  await models.User.create({name:'Second Test Admin',email:'second-admin@example.test',role:'ADMIN',passwordHash:hashPassword('second-test-password-123')});
-  assert.equal((await call(second,'post','/auth/admin/login',{email:'second-admin@example.test',password:'second-test-password-123'})).status,200);
-  assert.equal((await second.get('/api/v1/game/r1/state')).body.hasStarted,false);
+  await models.User.create({
+    name: "Second Test Admin",
+    email: "second-admin@example.test",
+    role: "ADMIN",
+    passwordHash: hashPassword("second-test-password-123"),
+  });
+  assert.equal(
+    (
+      await call(second, "post", "/auth/admin/login", {
+        email: "second-admin@example.test",
+        password: "second-test-password-123",
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (await second.get("/api/v1/game/r1/state")).body.hasStarted,
+    false,
+  );
 });

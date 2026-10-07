@@ -84,7 +84,7 @@ class VisionEngine {
             await this.hands.send({ image: this.videoElement });
           } catch (err) {
             this.stopCamera();
-            window.app.showToast('Hand tracking stopped. Continue with keyboard digits or reload the arena.', 'info');
+            window.app.showToast('Hand tracking stopped. Check your camera and reload the arena. Hand gestures are required.', 'error');
             return;
           }
         }
@@ -95,7 +95,7 @@ class VisionEngine {
     } catch (err) {
       console.error('Camera access error:', err);
       this.stopCamera();
-      window.app.showToast('Camera unavailable. Allow camera access in browser settings. Keyboard input is available.', 'info');
+      window.app.showToast('Camera unavailable. Allow camera access in browser settings. Only hand gestures are accepted.', 'error');
       return false;
     }
   }

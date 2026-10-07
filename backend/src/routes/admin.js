@@ -666,35 +666,10 @@ router.get(
 );
 router.patch(
   "/results/:id",
-  asyncRoute(async (req, res) => {
-    const id = objectId.parse(req.params.id),
-      b = z
-        .object({
-          score: z.number().min(0).max(1000000).optional(),
-          valid: z.boolean().optional(),
-          reason: z.string().trim().min(5).max(500),
-        })
-        .strict()
-        .parse(req.body);
-    res.json(
-      await audited(req, "CORRECT_RESULT", "Result", id, async (tx) => {
-        const doc = await Result.findById(id).session(tx);
-        if (!doc) fail(404, "Result not found.");
-        if (b.score !== undefined && b.score > doc.maximum)
-          fail(400, "Score exceeds the maximum for this attempt.");
-        const old = doc.toObject();
-        if (b.score !== undefined) {
-          doc.score = b.score;
-          await GameSession.updateOne(
-            { _id: doc.sessionId },
-            { $set: { score: b.score } },
-            { session: tx },
-          );
-        }
-        if (b.valid !== undefined) doc.valid = b.valid;
-        await doc.save({ session: tx });
-        return { old, new: { ...doc.toObject(), reason: b.reason } };
-      }),
+  asyncRoute(async () => {
+    fail(
+      405,
+      "Scores are checked automatically. Reset the attempt to grant a retry.",
     );
   }),
 );
