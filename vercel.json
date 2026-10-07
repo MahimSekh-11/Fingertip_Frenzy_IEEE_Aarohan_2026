@@ -1,7 +1,9 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm ci",
+  "installCommand": "npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root",
   "functions": {
     "api/index.js": {
       "maxDuration": 30
@@ -13,7 +15,7 @@
       "destination": "/api/index"
     },
     {
-      "source": "/((?!games/memory/|games/calculator/|assets/).*)",
+      "source": "/((?!games/memory/|games/calculator/|assets/|.*\\.[^/]+$).*)",
       "destination": "/index.html"
     }
   ],

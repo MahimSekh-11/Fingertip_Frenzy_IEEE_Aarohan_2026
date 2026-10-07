@@ -116,3 +116,15 @@ For the supplied deployment 90509f1 failure (missing cookie-parser/package.json)
 Changed both service installers to explicitly select both named workspaces. Verified cookie-parser remained after backend and frontend installations, Vite remained, zero audit vulnerabilities and no pending/ignored script-policy warning. Removed the ignored frontend allowScripts field; the reviewed pinned esbuild permission remains in root package.json.
 
 Both exact service build commands passed in this isolated copy. After both installs/builds, every declared backend dependency resolved, and importing backend/src/app.js yielded the expected Express function. The latest prior full test run passed 19 checks; no application code changed in this regression repair. The corrected cloud deployment itself remains unverified until the new commit is deployed.
+
+
+## Complete Vercel packaging audit after commit 090e202
+
+The latest source had again changed from services to a single-project layout and removed root allowScripts. Preserved that layout, added explicit framework:null, restored only the root esbuild approval, included build dependencies and both named workspaces in the one install, and excluded static extensions from SPA rewriting. .vercelignore correctly includes api/index.js for this mode.
+
+Full local Vercel production build in a private-environment-free isolated copy completed successfully, generating static output and the api/index.func Node 24 function. The offline project metadata initially contained a stale Services preset; explicit framework:null successfully selected the intended standard layout. Local Windows shell resolution needed a test-only .cache shim; nothing from that shim is committed or included in the deployed app.
+
+Latest validation: root build and API packaging completed, npm lint zero warnings/errors, all 19 tests passed, npm audit zero vulnerabilities. This is local packaging evidence, not a claim of cloud deployment or Atlas connectivity. The uploaded warning alone is not a fatal deployment error; final cloud state still needs a new-commit deployment.
+
+
+The generated function was then loaded directly under Node 24: api/index.func/node_modules/cookie-parser/package.json exists, and importing its api/index.js handler returned the Express function successfully. A direct Node 24 --test run passed all 19 checks with zero failures/skips, eliminating ambiguity from the system npm wrapper's older Node version.

@@ -6,7 +6,9 @@
     "frontend",
     "backend"
   ],
-
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  },
   "overrides": {
     "concurrently": {
       "shell-quote": "1.11.0"

@@ -5,7 +5,7 @@ No deployment has been performed by the coding task. Use the repository root as 
 1. Create a MongoDB Atlas cluster and a dedicated `aarohan` database. Use a least-privilege database user with read/write access to this database. Atlas supplies the replica set required by team and scoring transactions.
 2. Configure Atlas network access for your Vercel egress arrangement. Choose an appropriate deployment region near the Atlas region. Do not paste credentials into committed files or chat.
 3. Add `MONGODB_URI`, `APP_ORIGIN` (the exact final HTTPS origin), and `NODE_ENV=production` to Vercel. Preview deployments need their own matching origin and a separate test database. No frontend API URL or Firebase credential is required; all browser APIs are same-origin.
-4. Use Node 22 LTS or a supported newer Node runtime in Vercel. Run `npm ci` and `npm run build` locally. Root `vercel.json` defines independently built backend and frontend services.
+4. Use Node 22 LTS or a supported newer Node runtime in Vercel. Run `npm ci` and `npm run build` locally. Root `vercel.json` defines a root workspace build, static output and Node API function.
 5. Import the root repository into Vercel, or use the Vercel CLI: `vercel` for a preview and `vercel --prod` for production. Deployment was not executed here. Do not deploy the test data or `.cache` directory.
 6. Before opening registration, run the administrator bootstrap locally against the intended database with privately set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (16+ characters). Run `npm run bootstrap`, then remove the bootstrap password. The script refuses to run when an admin already exists.
 7. Normal participants use leader registration and five-field login; pre-import is unnecessary. If migrating historical participants, supply their full matching identity including email and team association. Optional legacy imports use `npm run import:students -- students.json` first, then `npm run import:students -- students.json --apply`. Input is a JSON array of `{name, rollNo, phoneNo, email?}`. Database conflicts roll back the entire import. Do not automatically run imports at deployment.
@@ -13,24 +13,17 @@ No deployment has been performed by the coding task. Use the repository root as 
 9. Publish real Puzzle and Detective content. Configure each game's window, attempts, weights and game-specific controls from the admin page.
 10. Verify HTTPS, `/api/health`, login/logout, cookie flags, direct URL refresh, all four games on real devices, leader registration, first-login teammate enrollment, ordered round unlocking, leaderboard updates and audited score corrections. Verify camera access inside the same-origin frames.
 
-## Vercel project settings and services
+## Current Vercel configuration — single project
 
-Keep the Vercel project Framework Preset set to **Services** and Root Directory at the repository root (blank or `.`), not frontend or backend. Remove legacy dashboard build/install/output overrides; the checked-in service configuration owns these settings. Select Node 22 LTS or a supported newer runtime. Redeploy the new Git commit containing this vercel.json; redeploying an older commit keeps its old configuration.
+The latest repository commit switched to a single-project layout. This layout is now explicit and verified through the full local Vercel production build. Set Framework Preset to **Other**, Root Directory to the repository root (blank or `.`), and Node.js to **24.x**. Clear dashboard command/output overrides; root vercel.json defines them. The checked-in `framework: null` disables framework auto-detection and overrides a stale preset. Do not switch back to Services without restoring a services configuration and rechecking installation/output packaging together.
 
-| Service | Root | Framework / entrypoint | Public paths |
-|---|---|---|---|
-| backend | backend | Express / src/app.js | /api and /api/* |
-| frontend | frontend | Vite / dist | All remaining paths |
+One root install explicitly selects both @aarohan/backend and @aarohan/frontend, includes dev dependencies and the workspace root, then npm run build compiles both applications. Static output is frontend/dist. api/index.js exports the backend Express application as the Node function. api/ must be included in uploads for this layout. Same-origin /api requests reach this function. No runtime service bindings are needed.
 
-A project configured as Services must have a nonempty `services` object. Do not replace this file with a single-project config while leaving the Vercel framework set to Services; that mismatch causes the reported fatal error.
-
-Each service installs with `npm ci --include=dev --workspace @aarohan/backend --workspace @aarohan/frontend --include-workspace-root`. npm discovers the root workspace lockfile; never use `--prefix ..`, since Vercel may already run installation at the repository root. Explicit named-workspace build commands select only the intended service. Frontend development honors Vercel's assigned PORT via dev.mjs. Build/runtime keys belong inside each service; only routing and headers stay at the top level.
-
-There are no internal services or bindings. Browser requests use public same-origin /api, backend game engines are local imports, and MongoDB is external. Original game folders are preserved reference sources rather than additional services. The unused root api/ handler is excluded by .vercelignore; the backend service uses backend/src/app.js directly.
+Only root package.json contains the pinned esbuild@0.25.12 allowScripts approval. Workspace-level fields are ignored by npm; frontend/package.json has no allowScripts field. Both private .env files and their templates are excluded from upload; configure runtime environment variables in Vercel. Original game repositories, documentation, tests, caches and local node_modules remain excluded. Backend/frontend sources, manifests, root lockfile, api and scripts remain included.
 
 ## Routing and connections
 
-Top-level object rewrites route /api and /api/* to the backend service with the original prefix preserved. The final catch-all routes to frontend. Its service-level SPA rewrite serves index.html for application deep links while excluding assets, file extensions, retained game frames and Vite development modules. backend/src/app.js exports Express without listening; backend/src/server.js is local development only.
+The /api/:path* rewrite targets /api/index, the exported Express function. SPA routes use index.html. The fallback excludes assets, file extensions and Calculator/Memory frames so JavaScript, CSS, favicon and game documents are served directly. Backend Express routes retain the /api prefix. backend/src/server.js is local development only.
 
 MongoDB connection creation is cached per function instance; sessions, game state, rate limit windows, scores and audit records are MongoDB data. Instances have no shared in-memory production state. Authentication uses opaque random cookie tokens and stores only token hashes. Cookies are secure in production, HTTP-only and SameSite=Lax. Every state-changing request must match `APP_ORIGIN`. Keep frontend and API on one origin.
 
@@ -71,3 +64,10 @@ The esbuild@0.25.12 script is explicitly allowed only in the root package.json; 
 The reported missing /vercel/path0/node_modules/cookie-parser/package.json was reproduced with Node 24 and npm 12: the backend install created cookie-parser, then the frontend install removed it. npm ci removes the existing shared node_modules tree, and an implicit current-workspace filter remains active even with --workspaces. Vercel had already traced backend dependencies before the frontend install, so final output packaging referenced a removed file.
 
 Both install commands now explicitly select --workspace @aarohan/backend and --workspace @aarohan/frontend, along with --include-workspace-root and --include=dev. Each install produces the same full dependency tree. Do not replace those explicit selectors with --workspaces alone, and do not add a parent-prefix override. The isolated reproduction verified that cookie-parser, Vite and every backend runtime dependency remained available after both service installs/builds. .vercelignore correctly excludes local node_modules, which Vercel recreates during installation; it does not exclude backend/src, manifests, lockfile or build scripts.
+
+
+## Full local packaging verification
+
+The final isolated check ran Vercel CLI 62.5.0 with Node 24.19.0 and local-only project metadata, without private credentials or any deployment. It completed the root install/build and generated .vercel/output/static/index.html plus .vercel/output/functions/api/index.func/.vc-config.json (nodejs24.x, api/index.js handler). A test-only Windows shell lookup workaround was necessary for the CLI's Linux-oriented spawn environment; it is confined to .cache and is not application code or uploaded content. Cloud builds run on Linux and do not use that workaround.
+
+Commit/push all configuration changes together, then deploy that new commit. An npm allowScripts warning mentioning frontend means a deployed manifest still contains a workspace-level field; check the deployment's exact Git commit against frontend/package.json. Do not redeploy an older commit expecting local edits to apply. Cloud runtime/Atlas connectivity and HTTPS camera checks still require verification on the actual deployed origin.
