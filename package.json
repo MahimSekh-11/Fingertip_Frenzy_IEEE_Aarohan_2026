@@ -1,0 +1,37 @@
+{
+  "name": "aarohan-ieee",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "allowScripts": {
+    "esbuild@0.25.12": true
+  },
+  "overrides": {
+    "concurrently": {
+      "shell-quote": "1.11.0"
+    }
+  },
+  "scripts": {
+    "dev": "concurrently -k \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "dev:local": "node scripts/local-dev.mjs",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "lint": "oxlint frontend/src backend/src scripts api",
+    "test": "node --test backend/test/scoring.test.js backend/test/db-config.test.js backend/test/integration.test.js backend/test/memory-ui.test.js",
+    "test:integration": "node --test backend/test/integration.test.js",
+    "db:check": "node scripts/check-database.mjs",
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "import:students": "node scripts/import-students.mjs",
+    "migrate": "node scripts/migrate.mjs",
+    "check": "npm run build -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "oxlint": "1.0.0",
+    "prettier": "^3.5.0",
+    "supertest": "^7.0.0",
+    "mongodb-memory-server-core": "^10.1.4"
+  }
+}

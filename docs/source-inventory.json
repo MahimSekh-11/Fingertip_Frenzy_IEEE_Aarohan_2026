@@ -1,0 +1,1320 @@
+[
+  {
+    "path": "IEEE_EVENT_MATH-main/docker-compose.yml",
+    "bytes": 680,
+    "sha256": "be12e8d58fd47396aa26c0478f474824fe4991894fe2a57102f600fa43948dc2"
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/README.md",
+    "bytes": 3293,
+    "sha256": "bd43882b8524d649891f91665d7c3e4b462abb7055e0fea9dc6fb090fd514605"
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/Dockerfile",
+    "bytes": 185,
+    "sha256": "eaf4512f78a52606f4baff577ce011665ec929b80dc4b1b12de7e12261ae3e27"
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/requirements.txt",
+    "bytes": 142,
+    "sha256": "dcf5dd59cb2cb489a273dfd0229b011b767085c9334746f063befad1047f3450"
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/main.py",
+    "bytes": 16629,
+    "sha256": "dbae633a5f9a31228bae732ab2f5d8d4bcd2c05d70cca2789012e5b25c6a78af",
+    "symbols": [
+      "lifespan",
+      "no_cache",
+      "err",
+      "mint",
+      "decode",
+      "Reg",
+      "Join",
+      "Login",
+      "clean_phone",
+      "find_roll",
+      "register",
+      "join",
+      "my_question",
+      "ws_endpoint",
+      "is_admin",
+      "admin_login",
+      "get_cfg",
+      "put_cfg",
+      "force_next",
+      "delete_team",
+      "wipe_data",
+      "state",
+      "hash_pw",
+      "check_pw",
+      "safe",
+      "lb_rows",
+      "lb",
+      "lb_csv",
+      "lb_pdf",
+      "end_game",
+      "AudLogin",
+      "AudNew",
+      "aud_login",
+      "aud_home",
+      "aud_list",
+      "aud_new",
+      "aud_del"
+    ],
+    "endpoints": [
+      "/api/register",
+      "/api/join",
+      "/api/team/{tid}/question",
+      "/ws",
+      "/api/admin/login",
+      "/api/admin/config",
+      "/api/admin/config",
+      "/api/admin/team/{tid}/next",
+      "/api/admin/team/{tid}",
+      "/api/admin/data",
+      "/api/admin/state",
+      "/api/admin/leaderboard",
+      "/api/admin/leaderboard.csv",
+      "/api/admin/leaderboard.pdf",
+      "/api/admin/game/end",
+      "/api/audience/login",
+      "/api/audience/home",
+      "/api/admin/audience",
+      "/api/admin/audience",
+      "/api/admin/audience/{email}"
+    ]
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/__init__.py",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/core/config.py",
+    "bytes": 1064,
+    "sha256": "d3812af3c33c8700771736c8fb73d78bc16a7e295765ccbb4a24f07389db2b5a",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/core/__init__.py",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/services/game_engine.py",
+    "bytes": 9625,
+    "sha256": "e1fcafb1f6336187a50536b85f45c7321eb4dc74a6e97afd6455991e4a106309",
+    "symbols": [
+      "ev",
+      "InvalidTransition",
+      "Player",
+      "__init__",
+      "Team",
+      "__init__",
+      "remaining",
+      "paused",
+      "solved",
+      "minutes",
+      "all_online",
+      "role_of",
+      "Engine",
+      "__init__",
+      "go",
+      "sync",
+      "push",
+      "view",
+      "next",
+      "handle",
+      "check_answer",
+      "end_team",
+      "ranked",
+      "run"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/services/question_generator.py",
+    "bytes": 4497,
+    "sha256": "34563d88ccbacba61ac44a0f2190afa0ed7c06173d9f6f8ff9a444e008a40ead",
+    "symbols": [
+      "from",
+      "_code",
+      "evaluate",
+      "satisfies",
+      "class",
+      "display",
+      "QuestionGenerator",
+      "__init__",
+      "find_solutions",
+      "make_hash",
+      "generate_question",
+      "_log"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/services/scoring.py",
+    "bytes": 154,
+    "sha256": "1a0f76527e646ed4505ea950a45ff487d13f49b98a2dd4ffd63c4b215ecea86b",
+    "symbols": [
+      "correct_points"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/services/store.py",
+    "bytes": 9604,
+    "sha256": "7d47d24624c93ab747d614f3742ef7415ff692b0123c5205553910a434b0c328",
+    "symbols": [
+      "clean_url",
+      "Base",
+      "TeamRow",
+      "PlayerRow",
+      "QuestionRow",
+      "_redact",
+      "_mark",
+      "AudienceRow",
+      "init",
+      "_init",
+      "migrate",
+      "save",
+      "load_into",
+      "flush",
+      "delete_team",
+      "wipe",
+      "flusher",
+      "audience_all",
+      "audience_save",
+      "audience_delete"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/app/services/__init__.py",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/static/index.html",
+    "bytes": 46811,
+    "sha256": "368b74935cd88440cb0d86d5af4efb9b2b9974b5cb544fbd7ae1d44cb7d51f00",
+    "symbols": [
+      "show",
+      "connect",
+      "toast",
+      "render",
+      "tickTimer",
+      "calStep",
+      "finishCal",
+      "draw",
+      "startCamera",
+      "renderEnd",
+      "nav",
+      "ask",
+      "endSession",
+      "signIn",
+      "startAud",
+      "loadAud",
+      "startAdmin",
+      "poll",
+      "drawAdmin",
+      "dl",
+      "loadAudList",
+      "route"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/tests/test_core.py",
+    "bytes": 3337,
+    "sha256": "33c0be36da5f62331ce15b4847ae8cd5338d8df8dfa7940384f3e60a3847083f",
+    "symbols": [
+      "test_generated_questions_are_solvable_and_unique",
+      "test_team_history_blocks_repeats",
+      "test_scoring_example",
+      "test_timers_and_templates",
+      "test_client_view_never_leaks_solutions",
+      "test_pause_freezes_clock_while_a_player_is_offline",
+      "W",
+      "test_only_leader_can_start_and_only_when_everyone_is_online",
+      "W",
+      "send_text"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/tests/test_phone.py",
+    "bytes": 2516,
+    "sha256": "c20a448775de25398ed0fbf7365b369dde89211b93f5637f283f808f1f9219f4",
+    "symbols": [
+      "test_phone_format_check",
+      "test_phone_is_optional_and_checked_when_given",
+      "test_admin_can_delete_all_game_data"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "IEEE_EVENT_MATH-main/backend/tests/test_store.py",
+    "bytes": 2264,
+    "sha256": "675406e3c4605f7324af03e5bcbbb0c4dc2ea48be79e455c8cee852e00c77503",
+    "symbols": [
+      "test_team_members_and_state_survive_restart",
+      "go",
+      "test_wipe_removes_everything_from_the_database",
+      "go",
+      "test_database_errors_are_redacted_and_explained",
+      "test_clean_url_repairs_pasted_values"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/.gitignore",
+    "bytes": 71,
+    "sha256": "7d77be56aec578c1cf871147c404173f6f595b9e9d85bf42069b261afe858725"
+  },
+  {
+    "path": "Number-Memory-Game-main/.python-version",
+    "bytes": 7,
+    "sha256": "61141e9590171b900fdf709e7ea8f050d5c2a69198d4a4a1977d7c45186307e5"
+  },
+  {
+    "path": "Number-Memory-Game-main/hand_landmarker.task",
+    "bytes": 7819105,
+    "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
+  },
+  {
+    "path": "Number-Memory-Game-main/opencv_vision_engine.py",
+    "bytes": 22325,
+    "sha256": "b6674e39856f0e0d5a6e791e0aebc7b88ff94ddf60690d4f5ff414af05cc1797",
+    "symbols": [
+      "ensure_model_file",
+      "HandDetectorWrapper",
+      "__init__",
+      "process",
+      "count_extended_fingers",
+      "get_gesture_digit",
+      "draw_hand_mesh",
+      "draw_hud",
+      "fetch_server_config",
+      "submit_score_to_server",
+      "update_server_status",
+      "run_opencv_standalone_game"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/package-lock.json",
+    "bytes": 32593,
+    "sha256": "559c4c1a57cfe6f70028cc23eb41647b310aff37e65472f2878e0a29d1f161d3"
+  },
+  {
+    "path": "Number-Memory-Game-main/package.json",
+    "bytes": 357,
+    "sha256": "f653dd1c9c33451d6b6da22bbfaa04f86ecef49896c6b653e424217190d1d7f8"
+  },
+  {
+    "path": "Number-Memory-Game-main/Procfile",
+    "bytes": 22,
+    "sha256": "fdd954e8f751c0d6c5058426a39a930c5c6ec10e00212036e22d7de84c65ed81"
+  },
+  {
+    "path": "Number-Memory-Game-main/README.md",
+    "bytes": 8456,
+    "sha256": "8fe6af560d83001d3db6f8387b0623f0e062de0a06f8e5b1f9da2faa13e42c11"
+  },
+  {
+    "path": "Number-Memory-Game-main/render.yaml",
+    "bytes": 376,
+    "sha256": "cf2dba8e671620bc331916da45dfdd6a6c613bb15cb4e5e5fe58c6023ce7779a"
+  },
+  {
+    "path": "Number-Memory-Game-main/requirements-desktop.txt",
+    "bytes": 168,
+    "sha256": "514de9a664996e74478458f5184ee9a1dde66ecba889941592f334e305353e27"
+  },
+  {
+    "path": "Number-Memory-Game-main/requirements.txt",
+    "bytes": 184,
+    "sha256": "a4289f89dd29a58923c72a184b197abdcca7a2a32953bfb9a3751fd0780bf759"
+  },
+  {
+    "path": "Number-Memory-Game-main/server.py",
+    "bytes": 30385,
+    "sha256": "47a2a18de0d90139e5331895f2c589f65186cdedb74e57ac715fed622278ed56",
+    "symbols": [
+      "get_default_db",
+      "load_db",
+      "save_db",
+      "generate_team_code",
+      "get_live_stats",
+      "broadcast",
+      "websocket_handler",
+      "cors_middleware",
+      "api_get_config",
+      "api_participant_create_team",
+      "api_participant_join_team",
+      "api_get_team_details",
+      "api_update_participant_status",
+      "api_submit_stage_score",
+      "api_audience_login",
+      "api_audience_live",
+      "api_admin_login",
+      "api_admin_config",
+      "api_admin_reset_participant",
+      "api_admin_delete_team",
+      "api_admin_reset_all",
+      "api_admin_export_csv",
+      "root_or_spa_handler",
+      "api_health",
+      "create_app",
+      "main"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/test_server.py",
+    "bytes": 4465,
+    "sha256": "2f90dbc36c5d384b1f690638459244b7d4cc8700e1b356eb0ac4449efc4d04d4",
+    "symbols": [
+      "ServerTestCase",
+      "get_application",
+      "test_health_check",
+      "test_get_config",
+      "test_index_page",
+      "test_admin_flow",
+      "test_websocket_connect",
+      "test_participant_tournament_flow"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/data/database.json",
+    "bytes": 17184,
+    "sha256": "1d1cb539b2c4fa82e1fd6e2927dbab78d6d4bec8bfa9c80f0aa0ce1dbefe6a4c"
+  },
+  {
+    "path": "Number-Memory-Game-main/public/index.html",
+    "bytes": 44325,
+    "sha256": "73a896c531e4e16c9db53a111ad2799bcf0c38aecf3c34d668f6ddc87b1dd68a",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/css/style.css",
+    "bytes": 58642,
+    "sha256": "f6295a266741b569a6333d337b756981dc84cb1ee29c799174f69c2f98fe761a",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/js/admin.js",
+    "bytes": 8194,
+    "sha256": "3d2c71af4dd4beb668074adb3b8530e90ab787c8c00d8774cd305c9334daee25",
+    "symbols": [
+      "AdminManager"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/js/app.js",
+    "bytes": 14914,
+    "sha256": "f90885cf836b0f423b016df50c1d70f66abbaf680c5cf6ca0ec4b0d12f2d10e2",
+    "symbols": [
+      "App"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/js/audio.js",
+    "bytes": 2490,
+    "sha256": "193d048e7ee47abb4825853d2152569cb86f17bbc5d6002b9babac6c8d0b196a",
+    "symbols": [
+      "SoundEngine"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/js/game.js",
+    "bytes": 32824,
+    "sha256": "b1ef0f88ae149c1a93df1a6498b4ec7de3c49f2866ef13dd5fc8e77ae8e7a886",
+    "symbols": [
+      "GameEngine"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/js/leaderboard.js",
+    "bytes": 7397,
+    "sha256": "1f8df582d236bd97bd191e435b9b247cb8a55d1496df4faff1d7ea4cd122cfd4",
+    "symbols": [
+      "LeaderboardManager"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "Number-Memory-Game-main/public/js/vision.js",
+    "bytes": 8736,
+    "sha256": "379e16fe15de8643800b5fd8255993f65f9fc59319f1608b39b6dedf2144d68d",
+    "symbols": [
+      "VisionEngine"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/.gitignore",
+    "bytes": 394,
+    "sha256": "9c43a676b30b02441da0524a8a584bbbee1a82f092de50fd685483d125ed1d61"
+  },
+  {
+    "path": "vortex-main/AUDIT_REPORT.md",
+    "bytes": 15011,
+    "sha256": "87ba513890d93f1e1117041efe9846f283fc5cd1d76d312fcc3800dc52bf27bf"
+  },
+  {
+    "path": "vortex-main/package-lock.json",
+    "bytes": 53535,
+    "sha256": "fc01aceb01c80852f46e1964cc327f54daac3d2100653cc9d10ce5664984862d"
+  },
+  {
+    "path": "vortex-main/package.json",
+    "bytes": 495,
+    "sha256": "598c762dc3c3729ef2e66b9cae19ba5f275b9fa6e41f43a0adf8b97ecf9ce917"
+  },
+  {
+    "path": "vortex-main/README.md",
+    "bytes": 6820,
+    "sha256": "cf3c534fb8421a0b23fa805525d9bff342536ad921fbaa68f1345b23a57f41d8"
+  },
+  {
+    "path": "vortex-main/vercel.json",
+    "bytes": 96,
+    "sha256": "0ecff71cc2ad5da02ba9cdae5333431044f59c4b7f9376e50356e856fec2e20a"
+  },
+  {
+    "path": "vortex-main/client/.env.example",
+    "bytes": 334,
+    "sha256": "8e9df7d94103c6dd466c4f1e9df69859354e2e74df7e679760d82f57e722a976"
+  },
+  {
+    "path": "vortex-main/client/.oxlintrc.json",
+    "bytes": 231,
+    "sha256": "1be899e45c49b2a2edc715bc3bfb31d8ed8e866ed7ebab2065ff6e55e88c2396"
+  },
+  {
+    "path": "vortex-main/client/index.html",
+    "bytes": 1103,
+    "sha256": "54b982e91984e0b23c1d3f138af0c6a46a66f58cbf5a073550dea99f4602dbdb",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/package-lock.json",
+    "bytes": 128595,
+    "sha256": "11b13d066efafa2fb726960b5731ae4b747c2d3377b25c2089b7700585dc19df"
+  },
+  {
+    "path": "vortex-main/client/package.json",
+    "bytes": 716,
+    "sha256": "192251cfc6ce32828d1a58388c02717358fc08cd9f7389deae8851e2b0d5a64c"
+  },
+  {
+    "path": "vortex-main/client/vercel.json",
+    "bytes": 96,
+    "sha256": "0ecff71cc2ad5da02ba9cdae5333431044f59c4b7f9376e50356e856fec2e20a"
+  },
+  {
+    "path": "vortex-main/client/vite.config.js",
+    "bytes": 323,
+    "sha256": "945729a930c7fea39e1c2641a5e5f0b953f39a567b94ab0384ea4c22c96beb32",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/public/bg-1.png",
+    "bytes": 1351272,
+    "sha256": "2810a9247cc019424fce3a71671948f73854dc3f0bc968bfe213a000026106e4"
+  },
+  {
+    "path": "vortex-main/client/public/favicon.svg",
+    "bytes": 9522,
+    "sha256": "61bc9a161de58248288e6905425d7180f0624c2865007b97d763fdac12043a66"
+  },
+  {
+    "path": "vortex-main/client/public/icons.svg",
+    "bytes": 5031,
+    "sha256": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a"
+  },
+  {
+    "path": "vortex-main/client/public/ieeesb_logo_theme.svg",
+    "bytes": 6135,
+    "sha256": "024a391bc6108b16b1fe1d3ce90cbde8f9ae8720030115962a52fddb90efc648"
+  },
+  {
+    "path": "vortex-main/client/public/logo.svg",
+    "bytes": 6135,
+    "sha256": "024a391bc6108b16b1fe1d3ce90cbde8f9ae8720030115962a52fddb90efc648"
+  },
+  {
+    "path": "vortex-main/client/public/panther.jpeg",
+    "bytes": 77039,
+    "sha256": "1e8542aec926a9bd9b8a931b727cd4b4b7f74eefe2dc1bc462ba92539f4e7e41"
+  },
+  {
+    "path": "vortex-main/client/src/App.css",
+    "bytes": 11462,
+    "sha256": "5d94789a33ae1ae6b1400d4dd54dc205b571a7d2c66523fb569a595008ff1112",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/App.jsx",
+    "bytes": 2967,
+    "sha256": "9fe18e601c7672cd7ff7d81a75c73d1a6f5832b86cc3de5eef7c8a74dcd73067",
+    "symbols": [
+      "App"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/index.css",
+    "bytes": 51986,
+    "sha256": "faf952528276234987663c463497cf2caffd0121003e60ca200f47310b0120a7",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/main.jsx",
+    "bytes": 229,
+    "sha256": "4b4b864dbe45253425d0c925337180ec07e204295179f80f59551216f466f618",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/assets/hero.png",
+    "bytes": 13057,
+    "sha256": "881ffbcaafc212e49addad08846a5b82761355fa20624253af3477ba33262c5c"
+  },
+  {
+    "path": "vortex-main/client/src/assets/react.svg",
+    "bytes": 4126,
+    "sha256": "35ef61ed53b323ae94a16a8ec659b3d0af3880698791133f23b084085ab1c2e5"
+  },
+  {
+    "path": "vortex-main/client/src/assets/vite.svg",
+    "bytes": 8709,
+    "sha256": "5be21acd42eb7b896e517f4e0f0f11eb5c5d9e54fbbcebe9453f033008fcca6f"
+  },
+  {
+    "path": "vortex-main/client/src/components/AppShell.jsx",
+    "bytes": 6159,
+    "sha256": "ad7e2bf870ca08ff508c021c963cdf00e5bc5d3a4d595a0ef7a78c9f102cf596",
+    "symbols": [
+      "AppShell"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/Controls.jsx",
+    "bytes": 2535,
+    "sha256": "8e856cff07e8073f9a2467c8869a34bacf90db69bd5c564f4c6696ecb8a4e45a",
+    "symbols": [
+      "Controls"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/GameBoard.jsx",
+    "bytes": 3670,
+    "sha256": "41c841642cbcf327a10f6442c503ebb595aebb3f3ec2798e2744fe130ac6d6f4",
+    "symbols": [
+      "GameBoard"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/Header.jsx",
+    "bytes": 1502,
+    "sha256": "389b5580963f3c382aa32d0bff253b47446e9024bae6af8f7ba3e9b36cf01a28",
+    "symbols": [
+      "Header"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/IEEELoader.jsx",
+    "bytes": 1694,
+    "sha256": "81927b629c71687620ef7e775332673a634c6526534e43b111893debbde3461b",
+    "symbols": [
+      "IEEELoader"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/ImageSelector.jsx",
+    "bytes": 3297,
+    "sha256": "b4fc2c434dbc757f676150d3d3afc4461bd9796d2f18ee212a0c18db23163d30",
+    "symbols": [
+      "ImageSelector"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/InstructionsModal.jsx",
+    "bytes": 1736,
+    "sha256": "12848658527ca69be59e2d044a306c0b6c67dd824d0ec1abbe56a8151b3ad463",
+    "symbols": [
+      "InstructionsModal"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/Navbar.jsx",
+    "bytes": 4608,
+    "sha256": "3afcbd8eb42c50851c22ab565105ebf273887f57b0490bb88d8750cecf47ec91",
+    "symbols": [
+      "Navbar"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/PieceTray.jsx",
+    "bytes": 3128,
+    "sha256": "44604f4d432e320d7631636d4b3bf19b1c4f5dba3bdc8dae7db3a57a04ac34a7",
+    "symbols": [
+      "PieceTray"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/PreviewModal.jsx",
+    "bytes": 1123,
+    "sha256": "66d3470113226e59af20319d94c7563ddc5aab1dff3de2b464a311dd87ebf1f7",
+    "symbols": [
+      "PreviewModal"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/ProtectedRoute.jsx",
+    "bytes": 2067,
+    "sha256": "eca71fd9ae98c4681066057c467465c4370912941b33b56fc5986fea8a5a9fdc",
+    "symbols": [
+      "ProtectedRoute"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/StatsBar.jsx",
+    "bytes": 1346,
+    "sha256": "360c656b06a060ce41d6e1bef3c542f81e91960f62090685588e74e43056c0ae",
+    "symbols": [
+      "StatsBar"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/TeamManagement.jsx",
+    "bytes": 21727,
+    "sha256": "b8dbb4e15c9616a23a08694490a329306abea7f801f0d4ba30d582baac1a5b1e",
+    "symbols": [
+      "TeamManagement"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/components/VictoryModal.jsx",
+    "bytes": 2543,
+    "sha256": "611375dd1435c948c2521a9dc8cecbdc4de7eb42d911d02fe3c6ef0178df31ed",
+    "symbols": [
+      "VictoryModal"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/config/firebase.js",
+    "bytes": 1357,
+    "sha256": "7192a73ac635cb4ed921c76e8ea5abac2894bc670ac55e4fd08323b88c64dedb",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/context/AuthContext.jsx",
+    "bytes": 4913,
+    "sha256": "d8787be9e583739e3f01f1f49a9f1e772931ffdc6d3807922690b556d119c19b",
+    "symbols": [
+      "AuthProvider",
+      "useAuth"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/AdminDashboardPage.jsx",
+    "bytes": 166265,
+    "sha256": "547f00733d29c0e20d66412c6c4ddf21f505937a08fea8d20c37191e98fd46ea",
+    "symbols": [
+      "request",
+      "downloadCsv",
+      "usePagination",
+      "Badge",
+      "Empty",
+      "Pager",
+      "Field",
+      "Modal",
+      "ConfirmDialog",
+      "Toasts",
+      "Kpi",
+      "SkeletonRows",
+      "AdminDashboardPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/DashboardPage.jsx",
+    "bytes": 11154,
+    "sha256": "726f5d599e0ed0d68ca249d728adf221e6743759dccabd2283d43c4ddbd46bd2",
+    "symbols": [
+      "DashboardPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/DetectiveGamePage.jsx",
+    "bytes": 23138,
+    "sha256": "76e457bb7e68d7c91682ce0fbd6f32df518aea9ae5b7ec2031ea9c9ee06472fc",
+    "symbols": [
+      "DetectiveGamePage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/HelpPage.jsx",
+    "bytes": 10860,
+    "sha256": "569b132b5e3b752288d448e9f015dba660026bedda48d3aa7b070d41e2c43200",
+    "symbols": [
+      "FaqItem",
+      "HelpPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/LeaderboardPage.jsx",
+    "bytes": 17091,
+    "sha256": "5f0f8237525fec77cd0e5b56e9d3762170d847824982cc8aea37b59b9e7c1610",
+    "symbols": [
+      "LeaderboardPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/LoginPage.jsx",
+    "bytes": 5252,
+    "sha256": "60af21e486316f4f1b50a282dfbfdabf4a28fc9f27dcf26ff58ebbeff9c30d04",
+    "symbols": [
+      "LoginPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/OnboardingPage.jsx",
+    "bytes": 8067,
+    "sha256": "1c95aa5ee50f022ee14c97decfc4977ee7ad804af543c133b422fa32af9e9d0d",
+    "symbols": [
+      "OnboardingPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/ProfilePage.jsx",
+    "bytes": 9440,
+    "sha256": "4be10a6486631cc33feae7a6401b4f62f52e197025de17d60284d3580b0d5cae",
+    "symbols": [
+      "ProfilePage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/PuzzleGamePage.jsx",
+    "bytes": 38822,
+    "sha256": "d92b5c0928af62426604600c88c80233f6557ecf7a5fbf15e369cd3d9283677e",
+    "symbols": [
+      "request",
+      "PuzzleGamePage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/RoundsPage.jsx",
+    "bytes": 7104,
+    "sha256": "c7517b478487b65a4cbac8eb8f7de4687597d117ee2822136a7abd47a76055f6",
+    "symbols": [
+      "RoundsPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/pages/TeamPage.jsx",
+    "bytes": 559,
+    "sha256": "9cfdebdebd74c65ba6b22f5fa66a0d6b6b14954df81d887f61db110b4809ed25",
+    "symbols": [
+      "TeamPage"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/services/api.js",
+    "bytes": 646,
+    "sha256": "ca99eca4b265d9c456bba3918bef5739cf9b852d6f7ec4905dc17bd6b6837935",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/services/socket.js",
+    "bytes": 1020,
+    "sha256": "01456350fb26a977626131ad7176172f01dff98821d4d8dc66169942dc17d611",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/utils/audio.js",
+    "bytes": 6142,
+    "sha256": "409625ea9987d645a240d1013f6a67decc72fac564ce902bf23ce97eae45887f",
+    "symbols": [
+      "getAudioContext"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/utils/presets.js",
+    "bytes": 172,
+    "sha256": "3492db1f48a76bd30267fcf49d9df0ca87131dccd957c10bcf34273d44f724bf",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/client/src/utils/puzzleLogic.js",
+    "bytes": 3818,
+    "sha256": "c3fcf4d86c47db2355eabf6b48c240f82a185b65ce5ab332c5348025261f4c27",
+    "symbols": [
+      "generateRandomPieceId",
+      "createTiles",
+      "shuffleArray",
+      "validateSolution",
+      "checkIsSolved",
+      "calculateProgress",
+      "formatTime",
+      "getHeroRating"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/.env.example",
+    "bytes": 515,
+    "sha256": "b2102f8e7bc744d74c04ddfc510d465672fe9eec9874f81c79901638228e19ad"
+  },
+  {
+    "path": "vortex-main/server/package-lock.json",
+    "bytes": 155315,
+    "sha256": "9100b50d28c10ac3968edacc82f0de2ff94a895edaacd1b6d13292deb7b5fb29"
+  },
+  {
+    "path": "vortex-main/server/package.json",
+    "bytes": 533,
+    "sha256": "5d574ff9c918f1255f0d0af6c8017607d1c81a6dab32132f97af42be1ca72efc"
+  },
+  {
+    "path": "vortex-main/server/src/index.js",
+    "bytes": 4545,
+    "sha256": "d3a4cbc814de37ea76e893b95172d29e004d3056dd2058232649b99c6405a143",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/config/cloudinary.js",
+    "bytes": 276,
+    "sha256": "a767a2445646b6c5f5c6ea9cfa2f99283a211150bbed307ba67cba5033acd29a",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/config/db.js",
+    "bytes": 948,
+    "sha256": "592d2bc1494aa5381d8e7eb64acdab4d1d3fad219400d0756ed7d39ec1f3fede",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/config/env.js",
+    "bytes": 305,
+    "sha256": "1580269a4a99999578c561df3f826f9599d4ec477c1e8cdebc1827dba4be1d48",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/config/firebaseAdmin.js",
+    "bytes": 1406,
+    "sha256": "03a29ffd343b192abcaca23c9d770aecbe81bf63e2c2fd995ec4f2a383693655",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/config/jwt.js",
+    "bytes": 601,
+    "sha256": "3ff156627833090d33ba84ed946c26aed1b19ff8ec8192eec05080b9a95e2a99",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/middleware/auth.js",
+    "bytes": 2736,
+    "sha256": "8d3ae84a6336a37d99462bd47e3bdeb87a054742d1ebe938965951093236027d",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/AdminAuditLog.js",
+    "bytes": 1075,
+    "sha256": "9ce7410ed21f206474d376c32baab0a6042556fc8c9a017adae4dbbd00528387",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/DetectiveAttempt.js",
+    "bytes": 1204,
+    "sha256": "221c1a441561f8f2ee7e7e75aa0168392287a41973e3f1f670bc2b8402d7bbe0",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/DetectiveCase.js",
+    "bytes": 763,
+    "sha256": "a5ed5df7f081d2d4834f1d5ec2124aad1f19907ccc3d67445123a75fd59c0a51",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/DetectiveClue.js",
+    "bytes": 784,
+    "sha256": "43984c7dd4794227446a4f824167dc2215d95b0bd9da20dea05f6c6e93d96eda",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/DetectiveHint.js",
+    "bytes": 618,
+    "sha256": "643fc90d5746ddd72b0a84960544f9ea7d82aec62217f0e11f457b17c0d6a19e",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/DetectiveQuestion.js",
+    "bytes": 826,
+    "sha256": "57e5d51b84dcef10f35b56df53259bff7b1dad8fad8af0098055b0b8ee1e7fa1",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/GameSession.js",
+    "bytes": 2383,
+    "sha256": "0768e68412bcf8033bbf7fdcadfcea20946739e564ff857974f5244e24ac8701",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/LeaderboardSetting.js",
+    "bytes": 567,
+    "sha256": "b727ca472e61cf0eb62e9b8a61cde2d84a4f03ef018ee8b6d6c7942f6c5db066",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/LeaderboardSnapshot.js",
+    "bytes": 2050,
+    "sha256": "65f8bfff3c21040ef97af641e46104e0f938e3dd619cbd3b2d31b7e63546282a",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/Puzzle.js",
+    "bytes": 3134,
+    "sha256": "dba5170d693f60dc6639bdd3754537793db53ce1104dd02a0e44ddc36187d0af",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/Round.js",
+    "bytes": 947,
+    "sha256": "f5b5f7a906eba7e048bf32ab7d5edca8df62d3f1715c187201d13ca9cc6e1056",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/Team.js",
+    "bytes": 2109,
+    "sha256": "64c8f248d8f995e3e3902272110aad4c15bdad5b494d94b37beaa53ead490c1d",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/models/User.js",
+    "bytes": 2596,
+    "sha256": "eaa59a78a00c329e256e6ea8299a505547ee6908f4160f36b83f2e5f0c697283",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/routes/adminManagementRoutes.js",
+    "bytes": 26512,
+    "sha256": "051a9888eb5dff24f349131593b44452471a55f5992107d91a54e627081a2718",
+    "symbols": [],
+    "endpoints": [
+      "/puzzles/upload-and-process",
+      "/puzzles",
+      "/puzzles",
+      "/puzzles/:id",
+      "/puzzles/:id",
+      "/puzzles/reorder",
+      "/puzzles/:id/publish",
+      "/rounds",
+      "/rounds/:roundNumber/status",
+      "/rounds/:roundNumber/config",
+      "/teams/:teamId/reset-session",
+      "/teams/:teamId/adjust-score",
+      "/leaderboard/status",
+      "/leaderboard/freeze",
+      "/leaderboard/publish",
+      "/audit-logs",
+      "/rounds",
+      "/rounds/:roundNumber",
+      "/whitelist",
+      "/whitelist",
+      "/whitelist/:email",
+      "/help",
+      "/help/:id",
+      "/help/:id"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/adminRoutes.js",
+    "bytes": 2745,
+    "sha256": "b1ef624caf113839de4c2c7153c29cff03e317482894a54c0e4c01465d49bf4e",
+    "symbols": [],
+    "endpoints": [
+      "/users",
+      "/users/:userId/role",
+      "/dashboard-stats"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/adminTeamRoutes.js",
+    "bytes": 7862,
+    "sha256": "3fdedaa92b739833d8ee8fc79efa6525ebd0e9d742d33be6b844c48134555fa1",
+    "symbols": [],
+    "endpoints": [
+      "/teams",
+      "/teams/:teamId",
+      "/teams/:teamId/members/:userId",
+      "/teams/:teamId/qualify",
+      "/users/:userId/toggle-access",
+      "/teams/:teamId/disqualify",
+      "/audit-logs"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/authRoutes.js",
+    "bytes": 5424,
+    "sha256": "7c4d762433a9220bce764669e9027b92c23e37e0ad1e6c53647594dc86baf7d3",
+    "symbols": [],
+    "endpoints": [
+      "/google",
+      "/logout",
+      "/me"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/detectiveRoutes.js",
+    "bytes": 12613,
+    "sha256": "c18ddef8b42394aba7725a32c3e242a43ff35cbca55af5f83aced6040619def6",
+    "symbols": [],
+    "endpoints": [
+      "/case",
+      "/submit-answer",
+      "/use-hint",
+      "/admin/cases",
+      "/admin/cases",
+      "/admin/cases/:id",
+      "/admin/cases/:id/publish",
+      "/admin/cases/:id",
+      "/admin/cases/:id/clues",
+      "/admin/cases/:id/clues",
+      "/admin/clues/:id",
+      "/admin/clues/:id",
+      "/admin/cases/:id/questions",
+      "/admin/cases/:id/questions",
+      "/admin/questions/:id",
+      "/admin/questions/:id",
+      "/admin/cases/:id/hints",
+      "/admin/cases/:id/hints",
+      "/admin/hints/:id",
+      "/admin/hints/:id",
+      "/admin/attempts"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/helpRoutes.js",
+    "bytes": 613,
+    "sha256": "4341373ce16803ddd7b9b943bccbc6c405b29442334046068671349c08f50a13",
+    "symbols": [],
+    "endpoints": [
+      "/"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/leaderboardRoutes.js",
+    "bytes": 9137,
+    "sha256": "7effd7012a8481b8308ae6e842cc392363d17cdb8b5fd89a2c457e16e8f704ee",
+    "symbols": [],
+    "endpoints": [
+      "/",
+      "/admin/preview",
+      "/admin/freeze",
+      "/admin/unfreeze",
+      "/admin/publish",
+      "/admin/manual-unlock",
+      "/admin/manual-revoke"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/round1GameRoutes.js",
+    "bytes": 10663,
+    "sha256": "e5597864c91cb17bc1b946d51257966af7b3cee8d5ae90de9f5b69765fd0b40c",
+    "symbols": [],
+    "endpoints": [
+      "/state",
+      "/start",
+      "/submit"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/roundRoutes.js",
+    "bytes": 13576,
+    "sha256": "6037a299b5b0393350d8f981fa4d31e664cb9ee18dbecc5efc4e25e381a29ea9",
+    "symbols": [],
+    "endpoints": [
+      "/dashboard",
+      "/:roundNumber/enter",
+      "/:roundNumber/game-state",
+      "/:roundNumber/submit"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/teamRoutes.js",
+    "bytes": 7579,
+    "sha256": "8fe1062b1cb6bf68c543e5a29e5b81459e740aaf4484daf3f51f1cb3673b739e",
+    "symbols": [],
+    "endpoints": [
+      "/create",
+      "/lookup/:code",
+      "/join",
+      "/leave",
+      "/my-team"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/uploadRoutes.js",
+    "bytes": 2250,
+    "sha256": "4ed434257ea3de4cc6faa1a56b7812a4b4925f727545670e397db50ed05ef059",
+    "symbols": [],
+    "endpoints": [
+      "/image",
+      "/signature"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/routes/userRoutes.js",
+    "bytes": 3852,
+    "sha256": "5726007a074a65ed926513d00c9294a5fd79e0ea450b14dc931fc1b5830bb8e5",
+    "symbols": [],
+    "endpoints": [
+      "/profile",
+      "/stats"
+    ]
+  },
+  {
+    "path": "vortex-main/server/src/services/detectiveService.js",
+    "bytes": 25520,
+    "sha256": "c4a2ae4bed355078c472be61fdef1ef46e13f37b2dfbac289c73ff8862063597",
+    "symbols": [
+      "ensureMemoryStore",
+      "seedDefaultDetectiveCaseIfNeeded",
+      "getPublishedCaseForParticipant",
+      "getOrStartAttempt",
+      "submitQuestionAnswer",
+      "unlockHint",
+      "getAllAdminCases",
+      "createAdminCase",
+      "updateAdminCase",
+      "togglePublishAdminCase",
+      "deleteAdminCase",
+      "getAdminClues",
+      "createAdminClue",
+      "updateAdminClue",
+      "deleteAdminClue",
+      "getAdminQuestions",
+      "createAdminQuestion",
+      "updateAdminQuestion",
+      "deleteAdminQuestion",
+      "getAdminHints",
+      "createAdminHint",
+      "updateAdminHint",
+      "deleteAdminHint",
+      "getAdminAttempts"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/services/imageProcessor.js",
+    "bytes": 5846,
+    "sha256": "126e82c41c5dfb261db9b2b5028c3469164f406e5b3719343d55798c929b58ec",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/services/rankingService.js",
+    "bytes": 24770,
+    "sha256": "7f39b84aa502a8526ee5c5f319b4484371a927f293892daeb74c335c81331e0c",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/services/roundSessionService.js",
+    "bytes": 12783,
+    "sha256": "755f970b52d2e68fd5e99b078bb11f40f144c9506501543d246e933677923a6d",
+    "symbols": [
+      "solveCosmicPath",
+      "resolveParadox"
+    ],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/services/socketService.js",
+    "bytes": 10711,
+    "sha256": "cf0e8f90b01f9bee884fff2ff78901413277bf3a460d14828b6233848f62fc2f",
+    "symbols": [],
+    "endpoints": []
+  },
+  {
+    "path": "vortex-main/server/src/services/store.js",
+    "bytes": 60146,
+    "sha256": "c5eec00ccd1214c04f0ec432e963550a2371ea0b75e76c750ce5dec9b53611ea",
+    "symbols": [],
+    "endpoints": []
+  }
+]

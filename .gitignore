@@ -1,0 +1,12 @@
+node_modules/
+frontend/dist/
+.env
+.env.*
+!.env.example
+*.log
+.vercel/
+coverage/
+.cache/
+**/data/database.json
+**/data/*.sqlite*
+**/data/*.db
