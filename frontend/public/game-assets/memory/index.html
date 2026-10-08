@@ -20,12 +20,11 @@
   <link rel="stylesheet" href="css/viewport.css">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 
-  <!-- MediaPipe Hands & Camera Utils -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-<style>header,.navbar,footer{display:none!important}</style></head>
+  <!-- Hand tracking loads on demand; the arena must render even if the CDN is slow. -->
+<style>header,.navbar,footer{display:none!important}body.platform-loading .view-section{display:none!important}#platform-loading-message{padding:24px;color:#a8bdd5;font-family:Inter,sans-serif}</style></head>
 
-<body>
+<body class="platform-loading">
+  <p id="platform-loading-message" role="status">Preparing your memory arena…</p>
 
   <!-- Top Navigation Header -->
   <header class="app-header">

@@ -9,6 +9,154 @@ const source = readFileSync(
   ),
   "utf8",
 );
+
+test("Calculator ignores late polling responses and serializes gesture writes", async () => {
+  const html = readFileSync(
+    new URL(
+      "../../frontend/public/game-assets/calculator/index.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const connect = html.slice(
+    html.indexOf("async function connect()"),
+    html.indexOf("const send ="),
+  );
+  const requests = [],
+    renders = [];
+  let poll;
+  const context = {
+    fetch: (path) => new Promise((resolve) => requests.push({ path, resolve })),
+    setInterval: (fn) => {
+      poll = fn;
+      return 1;
+    },
+    clearInterval() {},
+    show() {},
+    startCamera() {},
+    $: () => ({}),
+    render: () => renders.push(context.state().revision),
+  };
+  runInNewContext(
+    `let S=null, ws=null, rem0=0, t0=0; ${connect}; this.start=connect; this.state=()=>S; this.event=()=>ws.send('{}');`,
+    context,
+  );
+  const respond = (request, revision) =>
+    request.resolve({
+      ok: true,
+      json: async () => ({ sessionId: "one", revision, remaining: 30 }),
+    });
+  const start = context.start();
+  respond(requests.shift(), 1);
+  await start;
+  const pendingPoll = poll();
+  const pendingEvent = context.event();
+  await context.event();
+  assert.equal(requests.length, 2); // One poll and one mutation, despite the repeated event.
+  respond(requests[1], 3);
+  await pendingEvent;
+  respond(requests[0], 2);
+  await pendingPoll;
+  assert.equal(context.state().revision, 3);
+  assert.deepEqual(renders, [1, 3]);
+});
+
+test("Memory rejects ten fingers and clears old detections when the camera stops", () => {
+  const vision = readFileSync(
+    new URL(
+      "../../frontend/public/game-assets/memory/js/vision.js",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const window = {};
+  runInNewContext(vision, { window, console, Date });
+  const engine = window.visionEngine;
+  const noop = () => {};
+  engine.canvasElement = { width: 640, height: 480 };
+  engine.canvasCtx = {
+    save: noop,
+    clearRect: noop,
+    drawImage: noop,
+    restore: noop,
+  };
+  engine.drawHandMesh = noop;
+  engine.countFingers = () => ({ count: 5, fingers: [] });
+  engine.isRunning = true;
+  engine.processResults({
+    image: {},
+    multiHandLandmarks: [[], []],
+    multiHandedness: [{ label: "Left" }, { label: "Right" }],
+  });
+  assert.equal(engine.currentDigit, null);
+  engine.currentDigit = 7;
+  engine.recentDetections = [7];
+  engine.stopCamera();
+  assert.equal(engine.currentDigit, null);
+  assert.equal(engine.recentDetections.length, 0);
+});
+
+test("Memory previews the camera while tracking loads and retires old frame loops", async () => {
+  const vision = readFileSync(
+    new URL(
+      "../../frontend/public/game-assets/memory/js/vision.js",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const window = {},
+    frames = [];
+  let script,
+    played = false,
+    previewReady;
+  const preview = new Promise((resolve) => {
+    previewReady = resolve;
+  });
+  const stream = { getTracks: () => [{ stop() {} }] };
+  const context = {
+    window,
+    console,
+    Date,
+    setTimeout: () => 1,
+    clearTimeout() {},
+    requestAnimationFrame: (fn) => frames.push(fn),
+    navigator: { mediaDevices: { getUserMedia: async () => stream } },
+    document: {
+      createElement: () => (script = { remove() {} }),
+      head: { appendChild() {} },
+    },
+  };
+  runInNewContext(vision, context);
+  const engine = window.visionEngine;
+  const video = {
+    videoWidth: 640,
+    videoHeight: 480,
+    readyState: 2,
+    play: async () => {
+      played = true;
+      previewReady();
+    },
+  };
+  await engine.init(video, { getContext: () => ({ clearRect() {} }) });
+  const start = engine.startCamera();
+  await preview;
+  assert.equal(played, true);
+  assert.equal(engine.isRunning, false); // Preview is open, but no countdown readiness yet.
+  window.Hands = class {
+    setOptions() {}
+    onResults() {}
+    async send() {}
+  };
+  script.onload();
+  assert.equal(await start, true);
+  const oldFrame = frames[0];
+  engine.stopCamera();
+  await engine.startCamera();
+  const scheduled = frames.length;
+  await oldFrame();
+  assert.equal(frames.length, scheduled);
+  engine.stopCamera();
+});
 function fixture(cameraReady) {
   const calls = [],
     nodes = new Map(),

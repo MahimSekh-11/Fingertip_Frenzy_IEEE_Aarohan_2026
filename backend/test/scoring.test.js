@@ -13,6 +13,7 @@ import {
   initializeCalculator,
   advanceCalculator,
   evaluate,
+  calculatorView,
 } from "../src/game-services/calculator.js";
 import { defaults, schemas } from "../src/game-services/config.js";
 import { mergeSettings } from "../src/services/settings.js";
@@ -122,6 +123,78 @@ test("Calculator keeps leader-only start and pauses at an offline lease boundary
   advanceCalculator(doc, team, { _id: "x" }, {}, 12000);
   assert.equal(doc.state.hold, deadline - 9500);
   assert.equal(doc.state.deadline, null);
+});
+
+test("Memory retries reuse an unstarted sequence but cannot replay a running stage", () => {
+  const doc = {
+    config: defaults.memory,
+    state: { stage: 0, stages: [], active: null },
+    score: 0,
+  };
+  const first = beginStage(doc, 1);
+  assert.deepEqual(beginStage(doc, 1), first);
+  beginMemoryCountdown(doc, 1000);
+  assert.throws(() => beginStage(doc, 1), /already active/);
+});
+
+test("Calculator rejects stale gesture values and locks competition roles after starting", () => {
+  const team = { memberIds: ["x", "y", "z"], leaderId: "x" };
+  const doc = {
+    config: structuredClone(defaults.calculator),
+    state: initializeCalculator(team.memberIds),
+    score: 0,
+  };
+  for (const id of team.memberIds)
+    advanceCalculator(doc, team, { _id: id }, {}, 1000);
+  advanceCalculator(doc, team, { _id: "x" }, { type: "start" }, 1000);
+  for (const id of team.memberIds)
+    advanceCalculator(doc, team, { _id: id }, {}, 4500);
+  const roles = { ...doc.state.roles };
+  advanceCalculator(doc, team, { _id: "x" }, { type: "role", role: "Z" }, 4600);
+  assert.deepEqual(doc.state.roles, roles);
+  advanceCalculator(
+    doc,
+    team,
+    { _id: "x" },
+    { type: "digit", digit: 8, conf: 1, questionId: "old" },
+    4700,
+  );
+  assert.deepEqual(doc.state.values, {});
+  advanceCalculator(
+    doc,
+    team,
+    { _id: "x" },
+    { type: "digit", digit: 8, conf: 1, questionId: doc.state.question.id },
+    4800,
+  );
+  assert.equal(doc.state.values.X, 8);
+});
+
+test("Calculator output reflects operator precedence and constraints without awarding an invalid solution", () => {
+  const team = { _id: "team", memberIds: ["x", "y", "z"], leaderId: "x" };
+  const doc = {
+    _id: "attempt",
+    revision: 7,
+    config: defaults.calculator,
+    state: initializeCalculator(team.memberIds),
+    score: 0,
+    startedAt: new Date(1000),
+  };
+  doc.state.question = {
+    id: "Q1",
+    expr: "X+Y*Z",
+    target: 14,
+    con: "X > Y",
+    level: 2,
+  };
+  doc.state.values = { X: 2, Y: 3, Z: 4 };
+  const view = calculatorView(doc, team, [], { _id: "x" }, 2000);
+  assert.equal(view.res, 14);
+  assert.equal(view.solutionValid, false);
+  assert.equal(view.revision, 7);
+  assert.equal(view.sessionId, "attempt");
+  delete doc.state.values.Z;
+  assert.equal(calculatorView(doc, team, [], { _id: "x" }, 2000).res, null);
 });
 test("Normalized weights do not let the large raw-score games overwhelm Memory", () => {
   assert.equal(normalized(22, 22, 25), 250);

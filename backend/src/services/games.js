@@ -251,6 +251,8 @@ export async function calculatorState(user, event = {}) {
       ? team.members
       : await User.find({ _id: { $in: team.memberIds } }).session(tx);
     view = calculatorView(doc, team, members, user);
+    // mutateGame increments the persisted revision after this callback.
+    view.revision = doc.revision + 1;
   });
   return view;
 }
@@ -290,6 +292,7 @@ export function puzzleView(doc, team, user) {
     session: doc
       ? {
           id: doc._id,
+          revision: doc.revision,
           status: doc.status,
           score: doc.score,
           currentPuzzleIndex: doc.state.index,

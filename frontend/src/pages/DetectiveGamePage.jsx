@@ -43,27 +43,23 @@ export function DetectiveGamePage() {
   const [hintModal, setHintModal] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
-  const [syncLost, setSyncLost] = useState(false);
 
   const timerRef = useRef(null);
+  const fetchSerialRef = useRef(0);
 
   // Fetch Detective Case & Attempt State from Backend
   const fetchCaseData = useCallback(async ({ silent = false } = {}) => {
+    const serial = ++fetchSerialRef.current;
     try {
       if (!silent) {
         setLoading(true);
         setErrorData(null);
       }
       const res = await apiFetch(`${API_BASE_URL}/detective/case`);
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error(`The server returned an unreadable response (${res.status}).`);
-      }
+      const data = await res.json();
+      if (serial !== fetchSerialRef.current) return;
 
       if (!res.ok || !data.success) {
-        if (silent) throw new Error(data.message || "Could not refresh the case.");
         setErrorData({
           title:
             res.status >= 500
@@ -80,27 +76,26 @@ export function DetectiveGamePage() {
         return;
       }
 
+      setErrorData(null);
       setCaseData(data.case);
       setClues(data.clues || []);
       setQuestions(data.questions || []);
       setHints(data.hints || []);
       setAttempt(data.attempt || null);
-      setSyncLost(false);
 
       if (data.attempt?.expiresAt) {
         const expires = new Date(data.attempt.expiresAt).getTime();
-        const diff = Math.max(0, Math.floor((expires - Date.now()) / 1000));
+        const diff = Math.max(0, Math.ceil((expires - Date.now()) / 1000));
         setRemainingSeconds(diff);
       }
     } catch (err) {
-      if (silent) setSyncLost(true);
-      else setErrorData({
-          title: "Connection Error",
-          message: err.message || "Could not connect to the server.",
-          retryable: true,
-        });
+      setErrorData({
+        title: "Connection Error",
+        message: err.message || "Could not connect to the server.",
+        retryable: true,
+      });
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
@@ -108,20 +103,24 @@ export function DetectiveGamePage() {
     fetchCaseData();
   }, [fetchCaseData]);
 
+  // Teammates see saved answers/hints and server expiry without reloading the arena.
   useEffect(() => {
-    if (!attempt || ["COMPLETED", "TIME_EXPIRED"].includes(attempt.status))
-      return undefined;
-    const refresh = () => {
-      if (document.visibilityState === "visible" && !submitting && !unlockingHint)
-        fetchCaseData({ silent: true });
+    if (attempt?.status !== "IN_PROGRESS" || submitting || unlockingHint)
+      return;
+    let pending = false;
+    const refresh = async () => {
+      if (pending || document.hidden) return;
+      pending = true;
+      await fetchCaseData({ silent: true });
+      pending = false;
     };
-    const id = setInterval(refresh, 2000);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      clearInterval(id);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, [attempt?.status, fetchCaseData, submitting, unlockingHint]);
+    const id = setInterval(refresh, 4000);
+    return () => clearInterval(id);
+  }, [attempt?.status, submitting, unlockingHint, fetchCaseData]);
+
+  useEffect(() => {
+    setSelectedOption(null);
+  }, [attempt?.currentQuestionIndex]);
 
   // Live Authoritative Countdown Timer
   useEffect(() => {
@@ -136,20 +135,18 @@ export function DetectiveGamePage() {
     timerRef.current = setInterval(() => {
       if (attempt?.expiresAt) {
         const expires = new Date(attempt.expiresAt).getTime();
-        const diff = Math.max(0, Math.floor((expires - Date.now()) / 1000));
+        const diff = Math.max(0, Math.ceil((expires - Date.now()) / 1000));
         setRemainingSeconds(diff);
 
         if (diff <= 0) {
           clearInterval(timerRef.current);
-          setAttempt((prev) =>
-            prev ? { ...prev, status: "TIME_EXPIRED" } : prev,
-          );
+          fetchCaseData({ silent: true });
         }
       }
     }, 1000);
 
     return () => clearInterval(timerRef.current);
-  }, [attempt]);
+  }, [attempt, fetchCaseData]);
 
   // Submit MCQ Answer
   const handleSubmitAnswer = async (e) => {
@@ -160,6 +157,7 @@ export function DetectiveGamePage() {
     if (!currentQ) return;
 
     try {
+      ++fetchSerialRef.current;
       setSubmitting(true);
       setFeedback(null);
 
@@ -170,9 +168,12 @@ export function DetectiveGamePage() {
           selectedOptionIndex: selectedOption,
         }),
       });
-      let data;
-      try { data = await res.json(); }
-      catch { throw new Error(`The server returned an unreadable response (${res.status}).`); }
+      const data = await res.json();
+
+      if (data.expired) {
+        await fetchCaseData({ silent: true });
+        return;
+      }
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to submit answer.");
@@ -200,6 +201,7 @@ export function DetectiveGamePage() {
       setSelectedOption(null);
     } catch (err) {
       setFeedback({ type: "error", message: err.message });
+      await fetchCaseData({ silent: true });
     } finally {
       setSubmitting(false);
     }
@@ -208,14 +210,13 @@ export function DetectiveGamePage() {
   // Unlock Hint
   const handleConfirmUnlockHint = async (hint) => {
     try {
+      ++fetchSerialRef.current;
       setUnlockingHint(true);
       const res = await apiFetch(`${API_BASE_URL}/detective/use-hint`, {
         method: "POST",
         body: JSON.stringify({ hintId: hint.id || hint._id }),
       });
-      let data;
-      try { data = await res.json(); }
-      catch { throw new Error(`The server returned an unreadable response (${res.status}).`); }
+      const data = await res.json();
 
       if (!res.ok || !data.success) {
         throw new Error(data.message || "Failed to unlock hint.");
@@ -361,9 +362,7 @@ export function DetectiveGamePage() {
     (h) =>
       !h.questionId ||
       (h.questionId || h._id) === (currentQ?.id || currentQ?._id),
-  ).sort((a, b) => (a.penalty ?? 0) - (b.penalty ?? 0));
-  const nextHintId = currentQHints.find((h) => !h.isUsed)?.id ||
-    currentQHints.find((h) => !h.isUsed)?._id;
+  );
 
   return (
     <AppShell>
@@ -371,11 +370,6 @@ export function DetectiveGamePage() {
         className="detective-arena"
         style={{ maxWidth: 1100, margin: "0 auto" }}
       >
-        {syncLost && (
-          <div role="status" style={{ marginBottom: 12, color: "#fbbf24" }}>
-            Connection interrupted. Trying to sync the case…
-          </div>
-        )}
         {/* Header HUD Bar */}
         <div
           style={{
@@ -489,26 +483,6 @@ export function DetectiveGamePage() {
             )}
           </div>
         </div>
-
-        {caseData?.description && (
-          <section
-            aria-label="Case background"
-            style={{
-              marginBottom: 18,
-              padding: "18px 22px",
-              background: "linear-gradient(135deg, rgba(14,165,233,.12), rgba(13,22,39,.96))",
-              border: "1px solid rgba(56,189,248,.28)",
-              borderRadius: 14,
-            }}
-          >
-            <span style={{ color: "#38bdf8", fontSize: 11, fontWeight: 700, letterSpacing: ".08em", textTransform: "uppercase" }}>
-              Case background
-            </span>
-            <p style={{ color: "#cbd5e1", margin: "8px 0 0", lineHeight: 1.65 }}>
-              {caseData.description}
-            </p>
-          </section>
-        )}
 
         {/* Finished / Completed Screen */}
         <button
@@ -942,7 +916,6 @@ export function DetectiveGamePage() {
                           <button
                             type="button"
                             onClick={() => setHintModal(h)}
-                            disabled={(h.id || h._id) !== nextHintId}
                             style={{
                               padding: "4px 10px",
                               fontSize: 11,
@@ -951,8 +924,7 @@ export function DetectiveGamePage() {
                               background: "rgba(251, 191, 36, 0.12)",
                               border: "1px solid rgba(251, 191, 36, 0.3)",
                               color: "#fbbf24",
-                              cursor: (h.id || h._id) === nextHintId ? "pointer" : "not-allowed",
-                              opacity: (h.id || h._id) === nextHintId ? 1 : 0.45,
+                              cursor: "pointer",
                             }}
                           >
                             Unlock

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, Notice } from "./ui";
 import { request } from "../services/api";
@@ -7,6 +7,16 @@ export function AdminTestControls({ game }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [state, setState] = useState(null);
+  const apply = useCallback(
+    (next) =>
+      setState((previous) =>
+        previous?.sessionId === next.sessionId &&
+        previous.revision > next.revision
+          ? previous
+          : next,
+      ),
+    [],
+  );
   useEffect(() => {
     if (game !== "calculator") return;
     let alive = true;
@@ -14,7 +24,7 @@ export function AdminTestControls({ game }) {
       request("/games/calculator/state")
         .then((data) => {
           if (alive) {
-            setState(data);
+            apply(data);
             setError("");
           }
         })
@@ -27,7 +37,7 @@ export function AdminTestControls({ game }) {
       alive = false;
       clearInterval(timer);
     };
-  }, [game]);
+  }, [game, apply]);
   const act = async (fn) => {
     setBusy(true);
     setError("");
@@ -41,9 +51,7 @@ export function AdminTestControls({ game }) {
   };
   const event = (body) =>
     act(async () => {
-      setState(
-        await request("/games/calculator/event", { method: "POST", body }),
-      );
+      apply(await request("/games/calculator/event", { method: "POST", body }));
     });
   return (
     <details className="admin-test-panel arena-practice">
@@ -111,7 +119,14 @@ export function AdminTestControls({ game }) {
                 key={digit}
                 busy={busy}
                 disabled={state.phase !== "PLAYING"}
-                onClick={() => event({ type: "digit", digit, conf: 1 })}
+                onClick={() =>
+                  event({
+                    type: "digit",
+                    digit,
+                    conf: 1,
+                    questionId: state.question?.question_id,
+                  })
+                }
               >
                 {digit}
               </Button>
@@ -120,7 +135,14 @@ export function AdminTestControls({ game }) {
               className="secondary"
               busy={busy}
               disabled={state.phase !== "PLAYING"}
-              onClick={() => event({ type: "digit", digit: null, conf: 1 })}
+              onClick={() =>
+                event({
+                  type: "digit",
+                  digit: null,
+                  conf: 1,
+                  questionId: state.question?.question_id,
+                })
+              }
             >
               Clear digit
             </Button>

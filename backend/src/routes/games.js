@@ -112,7 +112,12 @@ router.get(
     const { doc } = await getCurrent("memory", req.user);
     res.json({
       stage: doc?.state.stage || 0,
-      active: doc?.state.active ? { stage: doc.state.active.stage } : null,
+      active: doc?.state.active
+        ? {
+            stage: doc.state.active.stage,
+            started: Boolean(doc.state.active.answerFrom),
+          }
+        : null,
       stages:
         doc?.state.stages.map(({ stage, score }) => ({ stage, score })) || [],
       status: doc?.status || "NOT_STARTED",
@@ -310,19 +315,8 @@ vortex.post(
         if (!h || h.enabled === false) fail(404, "Hint is unavailable.");
         const used = s.hintsUsed.includes(h.id);
         if (!used) {
-          const question = s.case.questions[s.index];
-          const nextHint = s.case.hints
-            .filter(
-              (candidate) =>
-                candidate.enabled !== false &&
-                (!candidate.questionId || candidate.questionId === question?.id),
-            )
-            .sort((a, b) => a.penalty - b.penalty)
-            .find((candidate) => !s.hintsUsed.includes(candidate.id));
-          if (nextHint && nextHint.id !== h.id)
-            fail(409, "Unlock the lower-penalty hint first.");
           s.hintsUsed.push(h.id);
-          doc.score -= h.penalty;
+          doc.score = Math.max(0, doc.score - h.penalty);
         }
         return {
           success: true,

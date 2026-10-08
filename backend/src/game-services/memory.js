@@ -11,6 +11,12 @@ export function sequence(count) {
 export const memoryScore = (shown, entered) =>
   shown.reduce((sum, d, i) => sum + (d === entered[i] ? 1 : 0), 0);
 export function beginStage(session, stage) {
+  // A lost response must not strand a stage before memorization has begun.
+  if (session.state.active?.stage === stage && !session.state.active.answerFrom)
+    return {
+      sequence: session.state.active.shown,
+      config: session.config.stages[`stage${stage}`],
+    };
   if (stage !== session.state.stage + 1 || stage > 3 || session.state.active)
     fail(409, "This stage is already active or out of order.");
   const cfg = session.config.stages[`stage${stage}`];

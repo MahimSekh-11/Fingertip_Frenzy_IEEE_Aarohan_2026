@@ -266,9 +266,6 @@ export function advanceCalculator(
         s.log.push({ n: s.n, pts, ok: true });
         session.score += pts;
         nextQuestion(s, cfg, now, { ok: true, pts, bonus }, session.testMode);
-      } else {
-        s.log.push({ n: s.n, pts: 0, ok: false });
-        nextQuestion(s, cfg, now, { ok: false }, session.testMode);
       }
     }
   }
@@ -283,6 +280,8 @@ export function calculatorView(session, team, members, user, now = Date.now()) {
     q = s.question;
   return {
     testMode: Boolean(session.testMode),
+    sessionId: String(session._id),
+    revision: session.revision || 0,
     team_id: String(team._id),
     team: team.name,
     code: team.code,
@@ -297,7 +296,14 @@ export function calculatorView(session, team, members, user, now = Date.now()) {
           Math.ceil((s.hold ?? (s.deadline ? s.deadline - now : 0)) / 1000),
         ),
     values: s.values,
-    res: null,
+    res:
+      q && "XYZ".split("").every((k) => Number.isInteger(s.values[k]))
+        ? evaluate(q.expr, s.values.X, s.values.Y, s.values.Z)
+        : null,
+    solutionValid:
+      q && "XYZ".split("").every((k) => Number.isInteger(s.values[k]))
+        ? satisfies(q, s.values.X, s.values.Y, s.values.Z)
+        : null,
     n: s.n,
     total: session.config.sequence.length,
     locking: "XYZ".split("").every((k) => k in s.values),

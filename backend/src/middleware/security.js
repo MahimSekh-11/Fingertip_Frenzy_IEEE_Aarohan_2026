@@ -55,15 +55,7 @@ export const checkOrigin = (req, res, next) => {
       );
     }
     const origin = req.headers.origin;
-    const isLoopback = (orig) =>
-      Boolean(orig) &&
-      /^http:\/\/(?:127\.0\.0\.1|localhost|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(?:1[6-9]|2\d|3[01])\.\d+\.\d+)(?::\d+)?$/.test(
-        orig,
-      );
-    const isAllowed =
-      origin === configuredOrigin ||
-      (isLoopback(configuredOrigin) && isLoopback(origin));
-    if (!isAllowed)
+    if (origin !== configuredOrigin)
       return res.status(403).json({
         message: "Request origin is not permitted.",
         code: "ORIGIN_NOT_PERMITTED",

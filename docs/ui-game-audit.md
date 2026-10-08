@@ -77,3 +77,16 @@ Publish the intended Detective draft and deploy the updated repository. For loca
 - Added View clues to open an accessible native dialog with focus trapping, a close control, and enough room to read all evidence. Switching clues updates both views without submitting an answer or charging a hint penalty. Image failures show an explanation and a full-size link.
 - Browser verified inline exhibit visibility at 390x844, opening the full reader, switching to a different text clue, and closing it. Proof: `docs/detective-clue-reader.jpg` (isolated fixture).
 - Lint and frontend/backend production builds passed. The deployed website requires a new deployment to receive these changes.
+
+## Arena reliability audit — 8 October 2026
+
+- Calculator now sends the actual question identifier with each detected digit, serializes gesture writes, and rejects late polling snapshots using a persisted attempt revision. Admin controls also retain the newest revision and include question IDs in practice inputs.
+- Calculator shows the current expression output alongside the target, explains whether the combination is valid, and keeps X/Y/Z role switching visible during private practice. The metadata correctly describes practice as untimed.
+- Added camera Stop/Retry controls, safe calibration storage, cancellation of pending camera initialization, and cleanup of older tracking loops. The camera no longer needs a whole-page reload after a tracker failure. Mobile camera controls remain accessible.
+- Memory reuses an unstarted stage when a start response is lost; a stage whose memorization already began cannot be replayed. Reloading before memorization can recover the prepared stage. Ten fingers are rejected instead of being treated as nine, and camera stop clears previous detections.
+- Memory loads tracking on demand while opening the camera preview in parallel. The stage clock waits for the tracker to be ready. A loading screen prevents the old unsupported registration/host controls flashing during startup.
+- Detective refreshes saved team answers and hints without replacing the arena with a loading screen. Its timer asks the server to confirm expiry, and expired/stale submissions refresh authoritative state. The previously reverted timeout/hint-choice feature was not reinstated.
+- Puzzle uses the correct current puzzle ID after advancing, retains the authoritative deadline, ignores older state revisions, and refreshes cleanly if submission arrives after timeout.
+- Production builds now check copied arena JavaScript and inline HTML scripts, which Vite does not otherwise compile.
+- Validation: full server/UI suite passed (41 tests), then the expanded six-test arena suite passed, covering all 42 current tests. Lint and production builds passed. Browser verified Calculator role changes, +100 scoring and automatic next question, Puzzle automatic submission/history, Detective linked clues and +100 progression, and Memory reaching gesture-only answering after camera readiness. Calculator fits a 390x844 viewport without outer overflow.
+- Proof: `docs/calculator-bugfix-verification.jpg` uses a disposable administrator fixture with the camera stopped. Physical hand accuracy and a three-device student game still need a live-device check. No production team data or event content was changed; deploy the updated code to apply these fixes publicly.

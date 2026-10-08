@@ -15,6 +15,7 @@ class VisionEngine {
     this.camera = null;
     this.hands = null;
     this.isRunning = false;
+    this.generation = 0;
 
     // Gesture state
     this.currentDigit = null;
@@ -36,78 +37,141 @@ class VisionEngine {
   async init(videoEl, canvasEl) {
     this.videoElement = videoEl;
     this.canvasElement = canvasEl;
-    this.canvasCtx = canvasEl.getContext('2d');
+    this.canvasCtx = canvasEl.getContext("2d");
     if (this.hands) return true;
 
-    // Load MediaPipe Hands
-    if (!window.Hands) {
-      console.error('MediaPipe Hands library not loaded');
-      return false;
-    }
+    if (!this.handsReady)
+      this.handsReady = (async () => {
+        if (!window.Hands)
+          await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            const timer = setTimeout(() => {
+              script.remove();
+              reject(
+                new Error("Hand tracker download timed out. Please retry."),
+              );
+            }, 15000);
+            script.src =
+              "https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js";
+            script.crossOrigin = "anonymous";
+            script.onload = () => {
+              clearTimeout(timer);
+              resolve();
+            };
+            script.onerror = () => {
+              clearTimeout(timer);
+              script.remove();
+              reject(
+                new Error(
+                  "Hand tracker could not load. Check your connection and retry.",
+                ),
+              );
+            };
+            document.head.appendChild(script);
+          });
+        this.hands = new window.Hands({
+          locateFile: (file) =>
+            `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`,
+        });
 
-    this.hands = new window.Hands({
-      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
+        this.hands.setOptions({
+          maxNumHands: 2,
+          modelComplexity: 1,
+          minDetectionConfidence: 0.65,
+          minTrackingConfidence: 0.6,
+        });
 
-    this.hands.setOptions({
-      maxNumHands: 2,
-      modelComplexity: 1,
-      minDetectionConfidence: 0.65,
-      minTrackingConfidence: 0.6
-    });
-
-    this.hands.onResults((results) => this.processResults(results));
+        this.hands.onResults((results) => this.processResults(results));
+      })().catch((error) => {
+        this.handsReady = null;
+        throw error;
+      });
+    // Camera permission may take longer than the parallel library request.
+    this.handsReady.catch(() => {});
     return true;
   }
 
   async startCamera() {
     if (this.isRunning) return true;
+    const generation = ++this.generation;
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: "user",
+        },
       });
+      if (generation !== this.generation) {
+        stream.getTracks().forEach((track) => track.stop());
+        return false;
+      }
       this.videoElement.srcObject = stream;
       await this.videoElement.play();
+      if (generation !== this.generation) return false;
 
       this.canvasElement.width = this.videoElement.videoWidth || 640;
       this.canvasElement.height = this.videoElement.videoHeight || 480;
 
+      await this.handsReady;
+      if (generation !== this.generation) return false;
       this.isRunning = true;
       await this.hands.send({ image: this.videoElement });
+      if (generation !== this.generation) return false;
 
       // Processing loop via requestAnimationFrame
       const loop = async () => {
-        if (!this.isRunning) return;
+        if (!this.isRunning || generation !== this.generation) return;
         if (this.videoElement.readyState >= 2) {
           try {
             await this.hands.send({ image: this.videoElement });
           } catch (err) {
+            if (generation !== this.generation) return;
             this.stopCamera();
-            window.app.showToast('Hand tracking stopped. Check your camera and reload the arena. Hand gestures are required.', 'error');
+            window.app.showToast(
+              "Hand tracking stopped. Check your camera and reload the arena. Hand gestures are required.",
+              "error",
+            );
             return;
           }
         }
-        requestAnimationFrame(loop);
+        if (this.isRunning && generation === this.generation)
+          requestAnimationFrame(loop);
       };
       requestAnimationFrame(loop);
       return true;
     } catch (err) {
-      console.error('Camera access error:', err);
+      if (generation !== this.generation) return false;
+      console.error("Camera access error:", err);
       this.stopCamera();
-      window.app.showToast('Camera unavailable. Allow camera access in browser settings. Only hand gestures are accepted.', 'error');
+      window.app.showToast(
+        "Camera unavailable. Allow camera access in browser settings. Only hand gestures are accepted.",
+        "error",
+      );
       return false;
     }
   }
 
   stopCamera() {
+    this.generation++;
     this.isRunning = false;
+    this.currentDigit = null;
+    this.lastDetectedDigit = null;
+    this.stableStartTime = null;
+    this.holdProgress = 0;
+    this.recentDetections = [];
     if (this.videoElement && this.videoElement.srcObject) {
-      this.videoElement.srcObject.getTracks().forEach(track => track.stop());
+      this.videoElement.srcObject.getTracks().forEach((track) => track.stop());
       this.videoElement.srcObject = null;
     }
     if (this.canvasCtx && this.canvasElement) {
-      this.canvasCtx.clearRect(0, 0, this.canvasElement.width, this.canvasElement.height);
+      this.canvasCtx.clearRect(
+        0,
+        0,
+        this.canvasElement.width,
+        this.canvasElement.height,
+      );
     }
   }
 
@@ -137,7 +201,7 @@ class VisionEngine {
 
   countFingers(landmarks, handedness) {
     const fingers = [];
-    const isRightHand = handedness === 'Right';
+    const isRightHand = handedness === "Right";
 
     // 1. Thumb: Multi-factor robust detection
     const thumbTip = landmarks[4];
@@ -146,14 +210,28 @@ class VisionEngine {
     const indexMcp = landmarks[5];
     const wrist = landmarks[0];
 
-    const distTipToWrist = Math.hypot(thumbTip.x - wrist.x, thumbTip.y - wrist.y);
-    const distMcpToWrist = Math.hypot(thumbMcp.x - wrist.x, thumbMcp.y - wrist.y);
-    const distTipToIndexMcp = Math.hypot(thumbTip.x - indexMcp.x, thumbTip.y - indexMcp.y);
-    const distIpToIndexMcp = Math.hypot(thumbIp.x - indexMcp.x, thumbIp.y - indexMcp.y);
+    const distTipToWrist = Math.hypot(
+      thumbTip.x - wrist.x,
+      thumbTip.y - wrist.y,
+    );
+    const distMcpToWrist = Math.hypot(
+      thumbMcp.x - wrist.x,
+      thumbMcp.y - wrist.y,
+    );
+    const distTipToIndexMcp = Math.hypot(
+      thumbTip.x - indexMcp.x,
+      thumbTip.y - indexMcp.y,
+    );
+    const distIpToIndexMcp = Math.hypot(
+      thumbIp.x - indexMcp.x,
+      thumbIp.y - indexMcp.y,
+    );
 
     const isExtendedFromPalm = distTipToWrist > distMcpToWrist * 1.15;
     const isSeparatedFromHand = distTipToIndexMcp > distIpToIndexMcp * 1.08;
-    const dirCheck = isRightHand ? (thumbTip.x < thumbIp.x) : (thumbTip.x > thumbIp.x);
+    const dirCheck = isRightHand
+      ? thumbTip.x < thumbIp.x
+      : thumbTip.x > thumbIp.x;
 
     if (dirCheck && (isExtendedFromPalm || isSeparatedFromHand)) {
       fingers.push(1);
@@ -196,7 +274,7 @@ class VisionEngine {
 
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
       results.multiHandLandmarks.forEach((landmarks, idx) => {
-        const handLabel = results.multiHandedness[idx]?.label || 'Hand';
+        const handLabel = results.multiHandedness[idx]?.label || "Hand";
         const { count, fingers } = this.countFingers(landmarks, handLabel);
         totalExtended += count;
         handDetails.push({ label: handLabel, count });
@@ -206,7 +284,8 @@ class VisionEngine {
       });
 
       // Bound digit between 0 and 9
-      rawDigit = Math.min(totalExtended, 9);
+      // Ten fingers are not the digit nine.
+      rawDigit = totalExtended <= 9 ? totalExtended : null;
     }
 
     ctx.restore();
@@ -251,7 +330,7 @@ class VisionEngine {
         detectedDigit,
         handDetails,
         totalExtended,
-        holdProgress: this.holdProgress
+        holdProgress: this.holdProgress,
       });
     }
   }
@@ -259,18 +338,36 @@ class VisionEngine {
   drawHandMesh(ctx, landmarks, w, h) {
     // MediaPipe Hand connection lines
     const connections = [
-      [0,1],[1,2],[2,3],[3,4], // Thumb
-      [0,5],[5,6],[6,7],[7,8], // Index
-      [0,9],[9,10],[10,11],[11,12], // Middle
-      [0,13],[13,14],[14,15],[15,16], // Ring
-      [0,17],[17,18],[18,19],[19,20], // Pinky
-      [5,9],[9,13],[13,17],[0,17] // Palm
+      [0, 1],
+      [1, 2],
+      [2, 3],
+      [3, 4], // Thumb
+      [0, 5],
+      [5, 6],
+      [6, 7],
+      [7, 8], // Index
+      [0, 9],
+      [9, 10],
+      [10, 11],
+      [11, 12], // Middle
+      [0, 13],
+      [13, 14],
+      [14, 15],
+      [15, 16], // Ring
+      [0, 17],
+      [17, 18],
+      [18, 19],
+      [19, 20], // Pinky
+      [5, 9],
+      [9, 13],
+      [13, 17],
+      [0, 17], // Palm
     ];
 
     // Draw skeletal connections
-    ctx.strokeStyle = '#00f5d4';
+    ctx.strokeStyle = "#00f5d4";
     ctx.lineWidth = 3;
-    ctx.shadowColor = '#00f5d4';
+    ctx.shadowColor = "#00f5d4";
     ctx.shadowBlur = 8;
 
     connections.forEach(([i, j]) => {
@@ -285,13 +382,19 @@ class VisionEngine {
     // Draw landmark joints
     landmarks.forEach((p, index) => {
       ctx.beginPath();
-      ctx.arc(p.x * w, p.y * h, this.TIP_IDS.includes(index) ? 6 : 4, 0, 2 * Math.PI);
-      ctx.fillStyle = this.TIP_IDS.includes(index) ? '#ff007f' : '#7928ca';
-      ctx.shadowColor = '#ff007f';
+      ctx.arc(
+        p.x * w,
+        p.y * h,
+        this.TIP_IDS.includes(index) ? 6 : 4,
+        0,
+        2 * Math.PI,
+      );
+      ctx.fillStyle = this.TIP_IDS.includes(index) ? "#ff007f" : "#7928ca";
+      ctx.shadowColor = "#ff007f";
       ctx.shadowBlur = 10;
       ctx.fill();
       ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = "#ffffff";
       ctx.stroke();
     });
 

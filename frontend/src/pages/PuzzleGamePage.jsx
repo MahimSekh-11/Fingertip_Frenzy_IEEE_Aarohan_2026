@@ -94,6 +94,7 @@ export function PuzzleGamePage() {
   const totalRef = useRef(0);
   const expiryFetchedRef = useRef(false);
   const fetchingRef = useRef(false);
+  const latestStateRef = useRef(null);
   const submittingRef = useRef(false);
   const lastSubmittedRef = useRef("");
   const dragRef = useRef(null);
@@ -170,6 +171,13 @@ export function PuzzleGamePage() {
   /* ----------------------------- data ----------------------------- */
 
   const applyState = useCallback((data) => {
+    const previous = latestStateRef.current;
+    if (
+      previous?.session?.id === data.session?.id &&
+      previous?.session?.revision > data.session?.revision
+    )
+      return;
+    latestStateRef.current = data;
     setGameState(data);
     const rs = data.session?.remainingSeconds;
     if (typeof rs === "number") {
@@ -183,7 +191,9 @@ export function PuzzleGamePage() {
         Number(data.session?.durationSeconds) || 0,
       );
       if (rs > 0) expiryFetchedRef.current = false;
-      setRemaining(Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000)));
+      setRemaining(
+        Math.max(0, Math.ceil((deadlineRef.current - Date.now()) / 1000)),
+      );
     } else {
       deadlineRef.current = null;
       setRemaining(null);
@@ -308,6 +318,10 @@ export function PuzzleGamePage() {
           body: JSON.stringify({ pieceOrder: order, puzzleId: puzzle.id }),
         });
         if (!mounted.current) return;
+        if (data.expired) {
+          await fetchGameState({ silent: true });
+          return;
+        }
         const text =
           data.message ||
           (data.isCorrect
@@ -335,7 +349,7 @@ export function PuzzleGamePage() {
         if (mounted.current) setSubmitting(false);
       }
     },
-    [isLeader, active, remaining, fetchGameState, later],
+    [isLeader, active, remaining, puzzle?.id, fetchGameState, later],
   );
 
   const move = (source, target) => {

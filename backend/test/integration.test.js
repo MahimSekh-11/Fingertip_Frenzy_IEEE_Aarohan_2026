@@ -500,6 +500,15 @@ test("Memory uses server-owned sequences, validates time/order and records actua
       stage,
     });
     assert.equal(r.status, 200);
+    const retry = await call(players[0], "post", "/games/memory/stage/start", {
+      stage,
+    });
+    assert.equal(retry.status, 200);
+    assert.deepEqual(retry.body.sequence, r.body.sequence);
+    assert.equal(
+      (await players[0].get("/api/games/memory/state")).body.active.started,
+      false,
+    );
     assert.equal(
       (
         await call(players[0], "post", "/games/memory/submit", {

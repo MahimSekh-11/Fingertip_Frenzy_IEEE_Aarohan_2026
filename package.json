@@ -16,7 +16,6 @@
   },
   "scripts": {
     "dev": "concurrently -k \"npm run dev -w backend\" \"npm run dev -w frontend\"",
-    "dev:local": "node scripts/local-dev.mjs",
     "build": "npm run build -w frontend && npm run build -w backend",
     "lint": "oxlint frontend/src backend/src scripts api",
     "test": "node --test backend/test/scoring.test.js backend/test/db-config.test.js backend/test/integration.test.js backend/test/memory-ui.test.js",
