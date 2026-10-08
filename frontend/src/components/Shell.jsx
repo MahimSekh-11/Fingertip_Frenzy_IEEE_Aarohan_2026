@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { NavLink, Link, useNavigate, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -48,8 +48,21 @@ export function Shell({ children, admin = false, title, subtitle }) {
     nav = useNavigate();
   admin = admin || user?.role === "ADMIN";
   const pathname = useLocation().pathname;
-  const arena = /^\/games\/(puzzle|detective|calculator|memory)\/?$/.test(pathname);
+  const arena = /^\/games\/(puzzle|detective|calculator|memory)\/?$/.test(
+    pathname,
+  );
   const [fullscreen, setFullscreen] = useState(false);
+  const navigationToggle = useRef(null);
+  useEffect(() => {
+    if (!open) return;
+    const dismiss = (event) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      navigationToggle.current?.focus();
+    };
+    document.addEventListener("keydown", dismiss);
+    return () => document.removeEventListener("keydown", dismiss);
+  }, [open]);
   useEffect(() => {
     const update = () => setFullscreen(Boolean(document.fullscreenElement));
     update();
@@ -58,23 +71,70 @@ export function Shell({ children, admin = false, title, subtitle }) {
   }, []);
   if (arena) {
     const game = pathname.split("/").filter(Boolean).at(-1);
-    const games = { puzzle: ["01", "Image Formation"], detective: ["02", "Detective Case"], calculator: ["03", "AI Calculator"], memory: ["04", "Number Memory"] };
+    const games = {
+      puzzle: ["01", "Image Formation"],
+      detective: ["02", "Detective Case"],
+      calculator: ["03", "AI Calculator"],
+      memory: ["04", "Number Memory"],
+    };
     const [round, name] = games[game];
     return (
       <div className="platform workspace arena-workspace">
-        <a className="skip" href="#main">Skip to game</a>
+        <a className="skip" href="#main">
+          Skip to game
+        </a>
         <div className="workspace-main">
           <header className="arena-bar">
-            <Link className="arena-exit" aria-label={admin ? "Return to game controls" : "Return to games"} to={admin ? `/admin/games/${game}` : "/games"} onClick={() => {
-              if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-            }}><ArrowLeft size={16} /><span>{admin ? "Game controls" : "Games"}</span></Link>
-            <div className="arena-identity"><span className="arena-round">{round}</span><div><strong>{name}</strong><small>FINGERTIP FRENZY · AAROHAN 2026</small></div></div>
-            <div className="arena-actions"><span className="arena-player">{admin ? "Private practice" : user?.name}</span><button className="arena-expand" aria-label={fullscreen ? "Exit full screen" : "Enter full screen"} title={fullscreen ? "Exit full screen" : "Enter full screen"} disabled={!document.fullscreenEnabled} onClick={async () => {
-              try { if (document.fullscreenElement) await document.exitFullscreen(); else await document.documentElement.requestFullscreen(); }
-              catch { setError("Full screen is unavailable in this browser. The arena already fills the window."); }
-            }}>{fullscreen ? <Minimize size={18} /> : <Maximize size={18} />}</button></div>
+            <Link
+              className="arena-exit"
+              aria-label={admin ? "Return to game controls" : "Return to games"}
+              to={admin ? `/admin/games/${game}` : "/games"}
+              onClick={() => {
+                if (document.fullscreenElement)
+                  document.exitFullscreen().catch(() => {});
+              }}
+            >
+              <ArrowLeft size={16} />
+              <span>{admin ? "Game controls" : "Games"}</span>
+            </Link>
+            <div className="arena-identity">
+              <span className="arena-round">{round}</span>
+              <div>
+                <strong>{name}</strong>
+                <small>FINGERTIP FRENZY · AAROHAN 2026</small>
+              </div>
+            </div>
+            <div className="arena-actions">
+              <span className="arena-player">
+                {admin ? "Private practice" : user?.name}
+              </span>
+              <button
+                className="arena-expand"
+                aria-label={
+                  fullscreen ? "Exit full screen" : "Enter full screen"
+                }
+                title={fullscreen ? "Exit full screen" : "Enter full screen"}
+                disabled={!document.fullscreenEnabled}
+                onClick={async () => {
+                  try {
+                    if (document.fullscreenElement)
+                      await document.exitFullscreen();
+                    else await document.documentElement.requestFullscreen();
+                  } catch {
+                    setError(
+                      "Full screen is unavailable in this browser. The arena already fills the window.",
+                    );
+                  }
+                }}
+              >
+                {fullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+              </button>
+            </div>
           </header>
-          <main id="main" tabIndex={-1}><Notice error>{error}</Notice>{children}</main>
+          <main id="main" tabIndex={-1}>
+            <Notice error>{error}</Notice>
+            {children}
+          </main>
         </div>
       </div>
     );
@@ -84,7 +144,7 @@ export function Shell({ children, admin = false, title, subtitle }) {
       <a className="skip" href="#main">
         Skip to content
       </a>
-      <aside className={open ? "open" : ""}>
+      <aside id="workspace-navigation" className={open ? "open" : ""}>
         <Brand />
         <div className="nav-label">
           {admin ? "EVENT OPERATIONS" : "YOUR WORKSPACE"}
@@ -122,6 +182,8 @@ export function Shell({ children, admin = false, title, subtitle }) {
             className="icon mobile-menu"
             aria-label="Toggle navigation"
             aria-expanded={open}
+            aria-controls="workspace-navigation"
+            ref={navigationToggle}
             onClick={() => setOpen(!open)}
           >
             <Menu />

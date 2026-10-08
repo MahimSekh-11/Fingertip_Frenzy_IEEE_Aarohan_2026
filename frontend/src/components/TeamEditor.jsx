@@ -16,9 +16,11 @@ export function TeamEditor({ value, busy, onSave, onClose }) {
     () => request("/admin/students?search=" + encodeURIComponent(query)),
     [query],
   );
-  const members = [...(team.data?.members || []), ...added].filter((m) =>
-    ids.includes(m._id),
-  );
+  const members = [
+    ...new Map(
+      [...(team.data?.members || []), ...added].map((m) => [m._id, m]),
+    ).values(),
+  ].filter((m) => ids.includes(m._id));
   return (
     <div>
       <div className="table-toolbar">
@@ -30,6 +32,8 @@ export function TeamEditor({ value, busy, onSave, onClose }) {
       <Notice error>{team.error || students.error}</Notice>
       {team.loading ? (
         <Loading />
+      ) : !team.data ? (
+        <Button onClick={team.reload}>Retry loading team</Button>
       ) : (
         <form
           onSubmit={(e) => {

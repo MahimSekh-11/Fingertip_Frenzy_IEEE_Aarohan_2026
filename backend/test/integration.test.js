@@ -1,6 +1,7 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
+import { spawnSync } from "node:child_process";
 import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server-core";
 import supertest from "supertest";
@@ -11,6 +12,12 @@ import { connectDB } from "../src/config/db.js";
 import { hashPassword } from "../src/services/auth.js";
 import { satisfies } from "../src/game-services/calculator.js";
 import { defaults } from "../src/game-services/config.js";
+import { detectiveData } from "../src/services/content.js";
+import { getCurrent, startGame } from "../src/services/games.js";
+import {
+  hasSequentialTileAssets,
+  refreshPuzzleAssets,
+} from "../src/services/images.js";
 let mongo, admin, players, team;
 const origin = "http://localhost:5173";
 const call = (agent, method, path, body) =>
@@ -53,11 +60,453 @@ after(async () => {
   if (mongo) await mongo.stop();
 });
 
+test("QA: hint costs purchased at zero remain payable from later answers", async () => {
+  const user = await models.User.findOne({ role: "ADMIN" });
+  const content = await models.Content.create({
+    gameId: "detective",
+    title: "Penalty QA",
+    published: true,
+    order: 0,
+    data: {
+      description: "QA",
+      difficulty: "Easy",
+      clues: [],
+      suspects: [],
+      questions: [
+        {
+          id: "penalty-q",
+          question: "Choose A",
+          options: ["A", "B"],
+          correctAnswerIndex: 0,
+          points: 100,
+        },
+      ],
+      hints: [{ id: "penalty-h", hintText: "A", penalty: 25, enabled: true }],
+    },
+  });
+  const doc = await models.GameSession.create({
+    scope: `admin:${user._id}`,
+    gameId: "detective",
+    userId: user._id,
+    testMode: true,
+    attempt: 9000,
+    startedAt: new Date(),
+    maximum: 100,
+    config: defaults.detective,
+    state: {
+      case: { ...content.data, id: String(content._id), title: content.title },
+      index: 0,
+      answers: [],
+      hintsUsed: [],
+      expiresAt: null,
+    },
+  });
+  try {
+    assert.equal(
+      (
+        await call(admin, "post", "/v1/detective/use-hint", {
+          hintId: "penalty-h",
+        })
+      ).status,
+      200,
+    );
+    assert.equal(
+      (
+        await call(admin, "post", "/v1/detective/use-hint", {
+          hintId: "penalty-h",
+        })
+      ).body.penaltyDeducted,
+      0,
+    );
+    const answer = await call(admin, "post", "/v1/detective/submit-answer", {
+      questionId: "penalty-q",
+      selectedOptionIndex: 0,
+    });
+    assert.equal(answer.status, 200);
+    assert.equal(answer.body.newScore, 75);
+  } finally {
+    await models.GameSession.deleteOne({ _id: doc._id });
+    await models.Content.deleteOne({ _id: content._id });
+  }
+});
+
+test("QA: Memory attempts are isolated by team with same-team legacy compatibility", async () => {
+  const user = await models.User.create({
+    name: "Moved Memory QA",
+    rollNo: "QAMOVE",
+    phoneNo: "9876500001",
+    email: "qa-move@example.test",
+  });
+  const teams = await models.Team.create([
+    {
+      name: "Old memory QA",
+      code: "FF-111111111111",
+      leaderId: user._id,
+      memberIds: [user._id],
+    },
+    {
+      name: "New memory QA",
+      code: "FF-222222222222",
+      leaderId: user._id,
+      memberIds: [user._id],
+    },
+  ]);
+  user.teamId = teams[0]._id;
+  await user.save();
+  const legacy = await models.GameSession.create({
+    scope: String(user._id),
+    userId: user._id,
+    teamId: teams[0]._id,
+    gameId: "memory",
+    attempt: 1,
+    status: "COMPLETED",
+    startedAt: new Date(),
+    state: { stage: 3, stages: [], active: null },
+    config: defaults.memory,
+    maximum: 18,
+    score: 18,
+  });
+  await models.GameSession.updateOne(
+    { _id: legacy._id },
+    { $unset: { testMode: 1 } },
+  );
+  try {
+    assert.equal(
+      String((await getCurrent("memory", user)).doc._id),
+      String(legacy._id),
+    );
+    user.teamId = teams[1]._id;
+    await user.save();
+    assert.equal((await getCurrent("memory", user)).doc, null);
+    await models.Result.create({
+      sessionId: new mongoose.Types.ObjectId(),
+      teamId: teams[1]._id,
+      userId: user._id,
+      gameId: "calculator",
+      valid: true,
+      score: 0,
+      maximum: 100,
+    });
+    const fresh = await startGame("memory", user);
+    assert.equal(fresh.attempt, 1);
+    assert.equal(String(fresh.teamId), String(teams[1]._id));
+  } finally {
+    await models.GameSession.deleteMany({ userId: user._id });
+    await models.Result.deleteMany({ userId: user._id });
+    await models.Team.deleteMany({ _id: { $in: teams.map((t) => t._id) } });
+    await models.User.deleteOne({ _id: user._id });
+  }
+});
+
+test("QA: Detective content rejects broken evidence and hint relationships", () => {
+  const valid = {
+    description: "QA",
+    difficulty: "Easy",
+    clues: [
+      {
+        id: "c",
+        title: "Clue",
+        description: "Proof",
+        evidence: "Text",
+        evidenceType: "text",
+      },
+    ],
+    questions: [
+      {
+        id: "q",
+        question: "Question",
+        options: ["A", "B"],
+        correctAnswerIndex: 0,
+        points: 100,
+        clueId: "c",
+      },
+    ],
+    hints: [{ id: "h", questionId: "q", hintText: "Hint", penalty: 25 }],
+  };
+  assert.equal(detectiveData.safeParse(valid).success, true);
+  assert.equal(
+    detectiveData.safeParse({
+      ...valid,
+      clues: [...valid.clues, ...valid.clues],
+    }).success,
+    false,
+  );
+  assert.equal(
+    detectiveData.safeParse({
+      ...valid,
+      questions: [{ ...valid.questions[0], clueId: "missing" }],
+    }).success,
+    false,
+  );
+  assert.equal(
+    detectiveData.safeParse({
+      ...valid,
+      hints: [{ ...valid.hints[0], questionId: "missing" }],
+    }).success,
+    false,
+  );
+});
+
+test("QA: exports match displayed pagination, search and deleted-record visibility", async () => {
+  const teams = await models.Team.create(
+    Array.from({ length: 26 }, (_, i) => ({
+      name: `Export QA ${String(i).padStart(2, "0")}`,
+      code: `FF-${(1000 + i).toString(16).toUpperCase().padStart(12, "0")}`,
+      status: i === 0 ? "DELETED" : "ACTIVE",
+    })),
+  );
+  try {
+    const query = "?page=2&limit=10&search=Export%20QA";
+    const shown = await admin.get("/api/admin/teams" + query);
+    const exported = await admin.get("/api/admin/export/teams" + query);
+    assert.equal(shown.status, 200);
+    assert.equal(exported.status, 200);
+    const lines = exported.text.trim().split("\r\n").slice(1);
+    assert.equal(lines.length, shown.body.rows.length);
+    for (const row of shown.body.rows)
+      assert.ok(exported.text.includes(row.name));
+    assert.ok(!exported.text.includes("Export QA 00"));
+    const empty = await admin.get(
+      "/api/admin/export/leaderboard?search=does-not-exist-qa&completed=true",
+    );
+    assert.equal(empty.text.trim().split("\r\n").length, 1);
+  } finally {
+    await models.Team.deleteMany({ _id: { $in: teams.map((t) => t._id) } });
+  }
+});
+
+test("QA: schedule compares instants rather than timestamp formatting", async () => {
+  const response = await call(admin, "patch", "/admin/games/memory/settings", {
+    ...defaults.memory,
+    startAt: "2026-10-08T12:00:00.000Z",
+    endAt: "2026-10-08T12:00:00Z",
+  });
+  try {
+    assert.equal(response.status, 400);
+  } finally {
+    await models.GameSetting.deleteOne({ gameId: "memory" });
+  }
+});
+
+test("QA: reading game state never starts attempts, renews leases or writes expired results", async () => {
+  const user = await models.User.findOne({ role: "ADMIN" });
+  const content = await models.Content.create({
+    gameId: "detective",
+    title: "Read-only QA",
+    published: true,
+    order: 0,
+    data: {
+      description: "QA",
+      difficulty: "Easy",
+      suspects: [],
+      clues: [],
+      questions: [
+        {
+          id: "q",
+          question: "Q",
+          options: ["A", "B"],
+          correctAnswerIndex: 0,
+          points: 100,
+        },
+      ],
+      hints: [],
+    },
+  });
+  try {
+    const before = await models.GameSession.countDocuments();
+    assert.equal((await admin.get("/api/v1/detective/case")).status, 200);
+    await admin.get("/api/games/calculator/state");
+    assert.equal(await models.GameSession.countDocuments(), before);
+    assert.equal(await models.CalculatorPresence.countDocuments(), 0);
+    const expired = await models.GameSession.create({
+      scope: `admin:${user._id}`,
+      gameId: "puzzle",
+      userId: user._id,
+      testMode: false,
+      attempt: 9001,
+      startedAt: new Date(Date.now() - 10000),
+      maximum: 100,
+      state: {
+        expiresAt: Date.now() - 1000,
+        index: 0,
+        puzzles: [],
+        attempts: [],
+      },
+      config: defaults.puzzle,
+    });
+    await getCurrent("puzzle", user);
+    assert.equal(
+      (await models.GameSession.findById(expired._id)).status,
+      "IN_PROGRESS",
+    );
+    assert.equal(
+      await models.Result.countDocuments({ sessionId: expired._id }),
+      0,
+    );
+    assert.equal(
+      (await call(admin, "post", "/v1/game/r1/sync", {})).status,
+      200,
+    );
+    assert.equal(
+      (await call(admin, "post", "/v1/game/r1/sync", {})).status,
+      200,
+    );
+    assert.equal(
+      (await models.GameSession.findById(expired._id)).status,
+      "COMPLETED",
+    );
+    assert.equal(
+      await models.Result.countDocuments({ sessionId: expired._id }),
+      1,
+    );
+    await models.Result.deleteOne({ sessionId: expired._id });
+  } finally {
+    await models.GameSession.deleteMany({ scope: `admin:${user._id}` });
+    await models.CalculatorPresence.deleteMany({ userId: user._id });
+    await models.Content.deleteOne({ _id: content._id });
+  }
+});
+
+test("QA: partial legacy settings retain finite leaderboard weights", async () => {
+  await models.GameSetting.create({
+    gameId: "memory",
+    config: { enabled: true },
+  });
+  const team = await models.Team.create({
+    name: "Partial weight QA",
+    code: "FF-333333333333",
+    memberIds: [],
+  });
+  const result = await models.Result.create({
+    sessionId: new mongoose.Types.ObjectId(),
+    teamId: team._id,
+    gameId: "memory",
+    userId: new mongoose.Types.ObjectId(),
+    valid: true,
+    score: 10,
+    maximum: 10,
+    completionTime: 1,
+    completedAt: new Date(),
+  });
+  await models.Team.updateOne(
+    { _id: team._id },
+    { $set: { memberIds: [result.userId] } },
+  );
+  try {
+    const response = await admin.get(
+      "/api/admin/leaderboard?search=Partial%20weight%20QA",
+    );
+    assert.equal(response.status, 200);
+    assert.equal(response.body.rows[0].total, 250);
+  } finally {
+    await models.GameSetting.deleteOne({ gameId: "memory" });
+    await models.Result.deleteOne({ _id: result._id });
+    await models.Team.deleteOne({ _id: team._id });
+  }
+});
+
 const identity = (i) => ({
   name: "Test Student " + i,
   rollNo: "24CS10" + i,
   phoneNo: "987654320" + i,
   email: "student" + i + "@example.test",
+});
+
+test("QA: legacy puzzle asset refresh preserves tile content and answer identities", async () => {
+  const assets = await models.ImageAsset.create(
+    Array.from({ length: 4 }, (_, i) => ({
+      data: Buffer.from(`tile-${i}`),
+      mime: "image/jpeg",
+    })),
+  );
+  const data = {
+    pieces: assets.map((asset, i) => ({
+      pieceId: `piece-${i}`,
+      imageUrl: `/api/assets/${asset._id}`,
+    })),
+    correctOrder: ["piece-0", "piece-1", "piece-2", "piece-3"],
+  };
+  assert.equal(hasSequentialTileAssets(data), true);
+  let refreshed;
+  await mongoose.connection.transaction(async (tx) => {
+    refreshed = await refreshPuzzleAssets(data, tx);
+  });
+  assert.equal(hasSequentialTileAssets(refreshed), false);
+  assert.deepEqual(refreshed.correctOrder, data.correctOrder);
+  for (const [i, piece] of refreshed.pieces.entries()) {
+    assert.equal(piece.pieceId, data.pieces[i].pieceId);
+    const copy = await models.ImageAsset.findById(
+      piece.imageUrl.split("/").pop(),
+    ).select("+data");
+    assert.equal(copy.data.toString(), `tile-${i}`);
+    assert.ok(
+      await models.ImageAsset.exists({ _id: assets[i]._id }),
+      "Cached image URLs remain usable",
+    );
+  }
+});
+
+test("QA: asset migration is dry-run by default, blocks active play and is idempotent", async () => {
+  const assets = await models.ImageAsset.create(
+    Array.from({ length: 4 }, () => ({
+      data: Buffer.from("migration-tile"),
+      mime: "image/jpeg",
+    })),
+  );
+  const content = await models.Content.create({
+    gameId: "puzzle",
+    title: "Migration QA",
+    published: false,
+    data: {
+      pieces: assets.map((asset, i) => ({
+        pieceId: `migration-${i}`,
+        imageUrl: `/api/assets/${asset._id}`,
+      })),
+      correctOrder: assets.map((_, i) => `migration-${i}`),
+    },
+  });
+  const run = (...args) =>
+    spawnSync(
+      process.execPath,
+      [resolve("scripts/refresh-puzzle-assets.mjs"), ...args],
+      {
+        env: { ...process.env, MONGODB_URI: mongo.getUri("aarohan_test") },
+        encoding: "utf8",
+      },
+    );
+  const audit = run();
+  assert.equal(audit.status, 0, audit.stderr);
+  assert.equal(JSON.parse(audit.stdout).legacyPuzzles, 1);
+  assert.equal(
+    hasSequentialTileAssets((await models.Content.findById(content._id)).data),
+    true,
+  );
+  const active = await models.GameSession.create({
+    scope: "migration-qa",
+    gameId: "puzzle",
+    status: "IN_PROGRESS",
+    testMode: false,
+    attempt: 1,
+  });
+  const blocked = run("--apply");
+  assert.equal(blocked.status, 1);
+  assert.match(blocked.stderr, /Finish or reset/);
+  await models.GameSession.deleteOne({ _id: active._id });
+  const apply = run("--apply");
+  assert.equal(apply.status, 0, apply.stderr);
+  assert.equal(JSON.parse(apply.stdout).refreshed, 1);
+  assert.equal(
+    hasSequentialTileAssets((await models.Content.findById(content._id)).data),
+    false,
+  );
+  assert.ok(
+    await models.Audit.exists({
+      action: "SYSTEM_REFRESH_PUZZLE_ASSETS",
+      entityId: String(content._id),
+    }),
+  );
+  assert.equal(JSON.parse(run("--apply").stdout).refreshed, 0);
+  await models.Content.deleteOne({ _id: content._id });
 });
 let otherCode;
 test("Database failures are diagnosed safely and warm functions reconnect", async () => {
@@ -389,6 +838,10 @@ test("Detective hides answers/hints and rejects question replay and out-of-order
     },
   });
   assert.equal(r.status, 201);
+  assert.equal(
+    (await call(players[0], "post", "/v1/detective/start", {})).status,
+    200,
+  );
   const state = await players[0].get("/api/v1/detective/case");
   assert.equal(state.status, 200);
   assert.equal(state.body.questions[0].correctAnswerIndex, undefined);
@@ -444,7 +897,7 @@ test("Detective completion automatically unlocks Calculator", async () => {
 test("Three independent Calculator sessions synchronize concurrent digits, tolerate jitter and recover offline teammates", async () => {
   const peers = players.slice(0, 3);
   const initial = await Promise.all(
-    peers.map((p) => p.get("/api/games/calculator/state")),
+    peers.map((p) => call(p, "post", "/games/calculator/sync", {})),
   );
   for (const r of initial) assert.equal(r.status, 200, JSON.stringify(r.body));
   const sameAttempt = new Set(initial.map((r) => r.body.sessionId));
@@ -454,13 +907,13 @@ test("Three independent Calculator sessions synchronize concurrent digits, toler
     1,
   );
   const ready = await Promise.all(
-    peers.map((p) => p.get("/api/games/calculator/state")),
+    peers.map((p) => call(p, "post", "/games/calculator/sync", {})),
   );
   for (const r of ready) assert.ok(r.body.players.every((p) => p.online));
   const revision = ready[0].body.revision;
   for (let i = 0; i < 3; i++) {
     const poll = await Promise.all(
-      peers.map((p) => p.get("/api/games/calculator/state")),
+      peers.map((p) => call(p, "post", "/games/calculator/sync", {})),
     );
     for (const r of poll)
       assert.equal(
@@ -501,7 +954,7 @@ test("Three independent Calculator sessions synchronize concurrent digits, toler
     { $set: { expiresAt: new Date(Date.now() + 22000) } },
   );
   const synced = await Promise.all(
-    peers.map((p) => p.get("/api/games/calculator/state")),
+    peers.map((p) => call(p, "post", "/games/calculator/sync", {})),
   );
   for (const r of synced) {
     assert.deepEqual(r.body.values, expected);
@@ -513,10 +966,10 @@ test("Three independent Calculator sessions synchronize concurrent digits, toler
     { sessionId: doc._id, userId: offlineId },
     { $set: { expiresAt: new Date(Date.now() - 1000) } },
   );
-  const paused = await peers[0].get("/api/games/calculator/state");
+  const paused = await call(peers[0], "post", "/games/calculator/sync", {});
   assert.equal(paused.body.paused, true);
   assert.deepEqual(paused.body.values, expected);
-  const resumed = await peers[2].get("/api/games/calculator/state");
+  const resumed = await call(peers[2], "post", "/games/calculator/sync", {});
   assert.equal(resumed.body.paused, false);
   assert.deepEqual(resumed.body.values, expected);
   const stale = await call(peers[0], "post", "/games/calculator/event", {
@@ -537,7 +990,7 @@ test("Three independent Calculator sessions synchronize concurrent digits, toler
   delete expected[clear.body.you.role];
   for (const p of peers)
     assert.deepEqual(
-      (await p.get("/api/games/calculator/state")).body.values,
+      (await call(p, "post", "/games/calculator/sync", {})).body.values,
       expected,
     );
 });
@@ -546,7 +999,10 @@ test("Calculator shared team state and equation scoring are authoritative in Mon
   let users = await models.User.find({ teamId: team._id }).sort({ rollNo: 1 });
   await call(players[0], "post", "/games/calculator/start", {});
   for (const player of players.slice(0, 3))
-    assert.equal((await player.get("/api/games/calculator/state")).status, 200);
+    assert.equal(
+      (await call(player, "post", "/games/calculator/sync", {})).status,
+      200,
+    );
   assert.equal(
     (
       await call(players[0], "post", "/games/calculator/event", {
@@ -576,7 +1032,7 @@ test("Calculator shared team state and equation scoring are authoritative in Mon
   );
   doc.markModified("state");
   await doc.save();
-  const state = await players[0].get("/api/games/calculator/state");
+  const state = await call(players[0], "post", "/games/calculator/sync", {});
   assert.equal(state.status, 200);
   assert.equal(state.body.phase, "FINISHED");
   assert.ok(
@@ -848,6 +1304,12 @@ test("Puzzle image upload persists cropped assets and validates malformed data",
   assert.equal(draft.published, false);
   assert.equal(draft.data.pieces.length, 6);
   assert.equal(new Set(draft.data.correctOrder).size, 6);
+  // Sequential ObjectIds expose row-major tile order, even when pieces are shuffled.
+  assert.ok(
+    new Set(
+      draft.data.pieces.map((p) => p.imageUrl.split("/").pop().slice(0, 8)),
+    ).size > 1,
+  );
   const asset = await supertest(app).get(draft.data.pieces[0].imageUrl);
   assert.equal(asset.status, 200);
   assert.match(asset.headers["content-type"], /image\/jpeg/);
@@ -1156,7 +1618,7 @@ test("Reset attempts return usable game states and Detective rejects blank optio
     ).status,
     200,
   );
-  const state = await players[0].get("/api/games/calculator/state");
+  const state = await call(players[0], "post", "/games/calculator/sync", {});
   assert.equal(state.status, 200);
   assert.equal(state.body.phase, "ASSIGN");
   const calculatorRetry = await models.GameSession.findOne({
@@ -1333,7 +1795,7 @@ test("Admins can complete all games privately while competition gates and scores
       200,
     );
   }
-  let view = await admin.get("/api/games/calculator/state");
+  let view = await call(admin, "post", "/games/calculator/sync", {});
   assert.equal(view.status, 200);
   assert.equal(view.body.testMode, true);
   assert.equal(view.body.players.length, 3);
@@ -1389,7 +1851,7 @@ test("Admins can complete all games privately while competition gates and scores
     { $set: { "state.changed": Date.now() - 6000 } },
   );
   assert.equal(
-    (await admin.get("/api/games/calculator/state")).body.phase,
+    (await call(admin, "post", "/games/calculator/sync", {})).body.phase,
     "FINISHED",
   );
   for (let stage = 1; stage <= 3; stage++) {

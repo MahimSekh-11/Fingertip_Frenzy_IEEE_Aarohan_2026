@@ -12,7 +12,8 @@ import {
   puzzleView,
   detectiveView,
   calculatorState,
-  scopeFor,
+  calculatorReadState,
+  sessionFilter,
   roundLock,
   availabilityReason,
 } from "../services/games.js";
@@ -32,10 +33,7 @@ router.get(
         const config = await gameSettings(id);
         const doc =
           req.user.teamId &&
-          (await GameSession.findOne({
-            scope: scopeFor(id, req.user),
-            gameId: id,
-          })
+          (await GameSession.findOne(sessionFilter(id, req.user))
             .sort({ attempt: -1 })
             .select("status score"));
         const missingContent =
@@ -74,6 +72,11 @@ router.post(
 );
 router.get(
   "/calculator/state",
+  rateLimit("calculator-state", 180),
+  asyncRoute(async (req, res) => res.json(await calculatorReadState(req.user))),
+);
+router.post(
+  "/calculator/sync",
   rateLimit("calculator-state", 180),
   asyncRoute(async (req, res) => res.json(await calculatorState(req.user))),
 );
@@ -177,6 +180,16 @@ vortex.get(
   }),
 );
 vortex.post(
+  "/game/r1/sync",
+  rateLimit("puzzle-state", 90),
+  asyncRoute(async (req, res) => {
+    const { doc, team } = await getCurrent("puzzle", req.user, {
+      finalize: true,
+    });
+    res.json(puzzleView(doc, team, req.user));
+  }),
+);
+vortex.post(
   "/game/r1/start",
   rateLimit("puzzle-start", 30),
   asyncRoute(async (req, res) => {
@@ -244,11 +257,36 @@ vortex.post(
 vortex.get(
   "/detective/case",
   asyncRoute(async (req, res) => {
-    let { doc } = await getCurrent("detective", req.user);
+    const { doc, team } = await getCurrent("detective", req.user);
+    res.json(
+      doc
+        ? detectiveView(doc)
+        : {
+            success: true,
+            hasStarted: false,
+            isLeader: String(team.leaderId) === String(req.user._id),
+          },
+    );
+  }),
+);
+vortex.post(
+  "/detective/start",
+  rateLimit("detective-start", 30),
+  asyncRoute(async (req, res) => {
+    let { doc } = await getCurrent("detective", req.user, { finalize: true });
     if (!doc) {
       await startGame("detective", req.user);
       ({ doc } = await getCurrent("detective", req.user));
     }
+    res.json(detectiveView(doc));
+  }),
+);
+vortex.post(
+  "/detective/sync",
+  rateLimit("detective-state", 90),
+  asyncRoute(async (req, res) => {
+    const { doc } = await getCurrent("detective", req.user, { finalize: true });
+    if (!doc) fail(409, "The attempt was reset. Reopen the arena to continue.");
     res.json(detectiveView(doc));
   }),
 );
@@ -276,13 +314,13 @@ vortex.post(
           fail(400, "Invalid answer option.");
         const isCorrect = b.selectedOptionIndex === q.correctAnswerIndex,
           pointsAwarded = isCorrect ? q.points : 0;
-        doc.score += pointsAwarded;
         s.answers.push({
           questionId: q.id,
           selectedOptionIndex: b.selectedOptionIndex,
           isCorrect,
           pointsAwarded,
         });
+        doc.score = detectiveScore(s);
         s.index++;
         if (s.index === s.case.questions.length) {
           doc.status = "COMPLETED";
@@ -317,7 +355,7 @@ vortex.post(
         const used = s.hintsUsed.includes(h.id);
         if (!used) {
           s.hintsUsed.push(h.id);
-          doc.score = Math.max(0, doc.score - h.penalty);
+          doc.score = detectiveScore(s);
         }
         return {
           success: true,
@@ -330,3 +368,16 @@ vortex.post(
   }),
 );
 export default router;
+
+function detectiveScore(state) {
+  const earned = state.answers.reduce(
+    (total, answer) => total + answer.pointsAwarded,
+    0,
+  );
+  const penalties = state.case.hints.reduce(
+    (total, hint) =>
+      total + (state.hintsUsed.includes(hint.id) ? hint.penalty : 0),
+    0,
+  );
+  return Math.max(0, earned - penalties);
+}

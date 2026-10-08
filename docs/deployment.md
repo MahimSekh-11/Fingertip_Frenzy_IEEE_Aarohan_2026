@@ -35,11 +35,11 @@ Security headers include nosniff, referrer policy, same-origin framing and camer
 
 - Login endpoints use persistent rate-limit counters. Origin checking is strict; a mismatched public domain returns 403.
 - Team names cannot change after registration, including for administrators. Identity edits revoke existing sessions. Replace a leader before deleting that member, and reset active attempts before removing members. Team deletion abandons active attempts and revokes member sessions. Team/member deletion retains historical records. Score correction, invalidation and attempt reset require reasons and create audit records within the mutation transaction.
-- CSV exports are paginated (100 records per export page); pass `?page=N`. Formula-like values are escaped. There is no unbounded production export query.
+- CSV exports use the same page and filters as the displayed table (25 rows by default; optional `limit` up to 100). Pass `page`, `search`, `gameId`, or `completed` as appropriate. Formula-like values are escaped. There is no unbounded production export query.
+- Game-state GET requests are read-only. Arenas use POST `/api/games/calculator/sync`, `/api/v1/game/r1/sync`, and `/api/v1/detective/sync` for heartbeats and expiry finalization. Detective entry explicitly posts to `/api/v1/detective/start`. Keep the frontend and backend on the same release when deploying this API change.
+- New puzzle uploads use random asset IDs so URL order cannot disclose the solution. Audit older uploads with `node scripts/refresh-puzzle-assets.mjs`. If it reports legacy puzzles, finish/reset active Puzzle attempts and run the same command with `--apply` before the event. It clones tile assets, preserves piece identities and old URLs, and records an audit entry; active attempt snapshots are never rewritten. Back up the database before any operational migration.
 - Leaderboard updates are derived from current valid results. Recalculation occurs on every request rather than maintaining a stale second leaderboard collection.
 - Database errors return 503 with a safe diagnostic code and request ID. Vercel function logs contain the same code/ID without connection strings, passwords or participant details. The service never writes a fallback JSON file or manufactures results.
-
-
 
 ## Build-log troubleshooting
 
@@ -51,20 +51,17 @@ Earlier deployment failures included npm EUSAGE from `npm ci --prefix ..` and â€
 
 Global standings, rank information and leaderboard exports require administrator authentication. Participants use /api/teams/me/score; the server derives the team from the authenticated active roster rather than accepting a client-selected team. Dashboard and My team show only that team's game scores and weighted total. This endpoint returns no rank or other team rows.
 
-
 ## Install-script and audit warnings
 
 The supplied Vercel logs show successful compilation. Funding notices and .vercelignore removals are informational. Dependency audit fixes are recorded in the committed manifests and package-lock.json: Sharp >=0.35.5, and a narrow Concurrently shell-quote override at 1.11.0. Commit the lockfile with the manifests so npm ci uses patched packages.
 
 The esbuild@0.25.12 script is explicitly allowed only in the root package.json; npm ignores workspace-level allowScripts fields. Keep this declaration aligned with the exact locked esbuild version when updating Vite. Do not approve all scripts or suppress npm auditing to hide warnings. Sharp 0.35.5 has no install lifecycle check requiring approval. Run npm 12 install-scripts ls from the repository root to review this policy; that command does not support workspace selection. The root and per-service build commands remain unchanged.
 
-
 ## ENOENT while deploying outputs
 
 The reported missing /vercel/path0/node_modules/cookie-parser/package.json was reproduced with Node 24 and npm 12: the backend install created cookie-parser, then the frontend install removed it. npm ci removes the existing shared node_modules tree, and an implicit current-workspace filter remains active even with --workspaces. Vercel had already traced backend dependencies before the frontend install, so final output packaging referenced a removed file.
 
 The current single root install explicitly selects --workspace @aarohan/backend and --workspace @aarohan/frontend, along with --include-workspace-root and --include=dev. Do not replace those explicit selectors with --workspaces alone, and do not add a parent-prefix override. The isolated reproduction verified that cookie-parser, Vite and every backend runtime dependency remained available. .vercelignore correctly excludes local node_modules, which Vercel recreates during installation; it does not exclude backend/src, manifests, lockfile or build scripts.
-
 
 ## Full local packaging verification
 

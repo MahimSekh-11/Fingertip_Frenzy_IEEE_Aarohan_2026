@@ -2,6 +2,69 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
+const cameraHelper = readFileSync(
+  new URL(
+    "../../frontend/public/game-assets/shared/camera.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+test("Camera startup times out, retires late streams/trackers and permits retry", async () => {
+  const timers = new Map();
+  let id = 0,
+    resolveStream,
+    stopped = 0;
+  const context = {
+    window: {},
+    setTimeout: (fn) => {
+      timers.set(++id, fn);
+      return id;
+    },
+    clearTimeout: (key) => timers.delete(key),
+    navigator: {
+      mediaDevices: {
+        getUserMedia: () =>
+          new Promise((resolve) => {
+            resolveStream = resolve;
+          }),
+      },
+    },
+  };
+  runInNewContext(cameraHelper, context);
+  const camera = context.window.ArenaCamera;
+  const opening = camera.open({ video: true });
+  const timeout = [...timers.values()][0];
+  timers.clear();
+  timeout();
+  await assert.rejects(opening, /Camera permission timed out/);
+  resolveStream({ getTracks: () => [{ stop: () => stopped++ }] });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(
+    stopped,
+    1,
+    "A late permission grant must not keep the camera on",
+  );
+  const retry = camera.open({ video: true });
+  const stream = { getTracks: () => [] };
+  resolveStream(stream);
+  assert.equal(await retry, stream);
+  assert.equal(timers.size, 0);
+  let resolveTracker,
+    closed = 0;
+  const tracker = camera.wait(
+    new Promise((resolve) => {
+      resolveTracker = resolve;
+    }),
+    20000,
+    "Tracker timed out",
+    (model) => model.close(),
+  );
+  [...timers.values()][0]();
+  await assert.rejects(tracker, /Tracker timed out/);
+  resolveTracker({ close: () => closed++ });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(closed, 1);
+});
 const source = readFileSync(
   new URL(
     "../../frontend/public/game-assets/memory/js/game.js",
@@ -128,6 +191,9 @@ test("Calculator keeps an accepted digit through hand loss and limits inference 
   };
   const context = {
     running: false,
+    window: {},
+    setTimeout,
+    clearTimeout,
     cameraRun: 0,
     landmarker: null,
     H: {},
@@ -159,6 +225,7 @@ test("Calculator keeps an accepted digit through hand loss and limits inference 
       state.values.X = event.digit;
     },
   };
+  runInNewContext(cameraHelper, context);
   runInNewContext(camera + ";this.start=startCamera", context);
   await context.start();
   for (let i = 1; i <= 30; i++) {
@@ -251,6 +318,7 @@ test("Memory previews the camera while tracking loads and retires old frame loop
       head: { appendChild() {} },
     },
   };
+  runInNewContext(cameraHelper, context);
   runInNewContext(vision, context);
   const engine = window.visionEngine;
   const video = {

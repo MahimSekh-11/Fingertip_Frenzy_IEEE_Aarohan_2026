@@ -96,7 +96,7 @@ class VisionEngine {
     const generation = ++this.generation;
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const stream = await window.ArenaCamera.open({
         video: {
           width: { ideal: 640 },
           height: { ideal: 480 },
@@ -108,16 +108,34 @@ class VisionEngine {
         return false;
       }
       this.videoElement.srcObject = stream;
-      await this.videoElement.play();
+      await window.ArenaCamera.wait(
+        this.videoElement.play(),
+        8000,
+        "Camera preview timed out. Please retry.",
+      );
       if (generation !== this.generation) return false;
 
       this.canvasElement.width = this.videoElement.videoWidth || 640;
       this.canvasElement.height = this.videoElement.videoHeight || 480;
 
-      await this.handsReady;
+      await window.ArenaCamera.wait(
+        this.handsReady,
+        20000,
+        "Hand tracker download timed out. Please retry.",
+      );
       if (generation !== this.generation) return false;
       this.isRunning = true;
-      await this.hands.send({ image: this.videoElement });
+      await window.ArenaCamera.wait(
+        this.hands.send({ image: this.videoElement }),
+        20000,
+        "Hand tracker initialization timed out. Please retry.",
+      ).catch((error) => {
+        const failed = this.hands;
+        this.hands = null;
+        this.handsReady = null;
+        Promise.resolve(failed?.close?.()).catch(() => {});
+        throw error;
+      });
       if (generation !== this.generation) return false;
 
       // Processing loop via requestAnimationFrame
@@ -146,7 +164,8 @@ class VisionEngine {
       console.error("Camera access error:", err);
       this.stopCamera();
       window.app.showToast(
-        "Camera unavailable. Allow camera access in browser settings. Only hand gestures are accepted.",
+        err.message ||
+          "Camera unavailable. Allow camera access in browser settings. Only hand gestures are accepted.",
         "error",
       );
       return false;

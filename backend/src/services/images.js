@@ -1,7 +1,45 @@
 import sharp from "sharp";
 import { randomBytes } from "node:crypto";
+import mongoose from "mongoose";
 import { ImageAsset } from "../models/index.js";
 import { fail } from "./errors.js";
+export function hasSequentialTileAssets(data) {
+  const ids = (data?.pieces || []).map(
+    (p) => /^\/api\/assets\/([a-f0-9]{24})$/.exec(p.imageUrl)?.[1],
+  );
+  return (
+    ids.length >= 4 &&
+    ids.every((id) => id && id.slice(0, 18) === ids[0].slice(0, 18))
+  );
+}
+export async function refreshPuzzleAssets(data, session) {
+  const pieces = [];
+  for (const piece of data.pieces) {
+    const id = /^\/api\/assets\/([a-f0-9]{24})$/.exec(piece.imageUrl)?.[1];
+    if (!id) {
+      pieces.push(piece);
+      continue;
+    }
+    const asset = await ImageAsset.findById(id)
+      .select("+data")
+      .session(session || null);
+    if (!asset)
+      fail(409, "A puzzle tile asset is missing. Re-upload this puzzle image.");
+    const [copy] = await ImageAsset.create(
+      [
+        {
+          _id: new mongoose.Types.ObjectId(randomBytes(12)),
+          data: asset.data,
+          mime: asset.mime,
+        },
+      ],
+      { session },
+    );
+    pieces.push({ ...piece, imageUrl: `/api/assets/${copy._id}` });
+  }
+  // Keep old assets available for cached pages. Piece identities and scoring do not change.
+  return { ...data, pieces };
+}
 export async function cropPuzzle(image, rows, cols, session) {
   const match = /^data:image\/(?:png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/.exec(
     image,
@@ -30,7 +68,13 @@ export async function cropPuzzle(image, rows, cols, session) {
     fail(400, "The image is too small for this grid.");
   const save = async (buffer) => {
     const [asset] = await ImageAsset.create(
-      [{ data: buffer, mime: "image/jpeg" }],
+      [
+        {
+          _id: new mongoose.Types.ObjectId(randomBytes(12)),
+          data: buffer,
+          mime: "image/jpeg",
+        },
+      ],
       { session },
     );
     return "/api/assets/" + asset._id;

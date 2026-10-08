@@ -46,6 +46,13 @@ export function DetectiveGamePage() {
 
   const timerRef = useRef(null);
   const fetchSerialRef = useRef(0);
+  const hintDialogRef = useRef(null);
+  useEffect(() => {
+    const dialog = hintDialogRef.current;
+    if (!hintModal || !dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, [hintModal]);
 
   // Fetch Detective Case & Attempt State from Backend
   const fetchCaseData = useCallback(async ({ silent = false } = {}) => {
@@ -55,7 +62,10 @@ export function DetectiveGamePage() {
         setLoading(true);
         setErrorData(null);
       }
-      const res = await apiFetch(`${API_BASE_URL}/detective/case`);
+      const res = await apiFetch(
+        `${API_BASE_URL}/detective/${silent ? "sync" : "start"}`,
+        { method: "POST" },
+      );
       const data = await res.json();
       if (serial !== fetchSerialRef.current) return;
 
@@ -909,7 +919,7 @@ export function DetectiveGamePage() {
                           >
                             {h.isUsed
                               ? h.hintText
-                              : `Hint Available (Penalty: -${h.penalty || 20} pts)`}
+                              : `Hint Available (Penalty: -${h.penalty ?? 20} pts)`}
                           </span>
                         </div>
                         {!h.isUsed && (
@@ -941,59 +951,71 @@ export function DetectiveGamePage() {
 
         {/* Hint Unlock Modal Confirmation */}
         {hintModal && (
-          <div className="ieee-modal-overlay">
-            <div className="ieee-modal-box">
-              <div
-                className="ieee-modal-icon warning"
-                style={{
-                  background: "rgba(251, 191, 36, 0.12)",
-                  border: "1px solid rgba(251, 191, 36, 0.3)",
-                  color: "#fbbf24",
-                }}
-              >
-                <Lightbulb className="w-6 h-6" />
-              </div>
-              <h3 style={{ fontSize: 18, fontWeight: 700, color: "#f8fafc" }}>
-                Unlock Investigation Hint?
-              </h3>
-              <p
-                className="ieee-modal-msg"
-                style={{ fontSize: 13.5, color: "#94a3b8" }}
-              >
-                Unlocking this hint will deduct{" "}
-                <strong>{hintModal.penalty || 20} points</strong> from your
-                investigation score.
-              </p>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 10,
-                  justifyContent: "flex-end",
-                  marginTop: 20,
-                }}
-              >
-                <button
-                  onClick={() => setHintModal(null)}
-                  className="ieee-outline-btn"
-                  style={{ padding: "8px 16px", fontSize: 12 }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => handleConfirmUnlockHint(hintModal)}
-                  disabled={unlockingHint}
-                  className="ieee-enter-btn"
-                  style={{ padding: "8px 16px", fontSize: 12 }}
-                >
-                  {unlockingHint ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    "Confirm & Unlock"
-                  )}
-                </button>
-              </div>
+          <dialog
+            ref={hintDialogRef}
+            className="ieee-modal-box detective-hint-dialog"
+            aria-labelledby="hint-confirm-title"
+            aria-describedby="hint-confirm-description"
+            onCancel={(e) => {
+              e.preventDefault();
+              if (!unlockingHint) setHintModal(null);
+            }}
+          >
+            <div
+              className="ieee-modal-icon warning"
+              style={{
+                background: "rgba(251, 191, 36, 0.12)",
+                border: "1px solid rgba(251, 191, 36, 0.3)",
+                color: "#fbbf24",
+              }}
+            >
+              <Lightbulb className="w-6 h-6" />
             </div>
-          </div>
+            <h3
+              id="hint-confirm-title"
+              style={{ fontSize: 18, fontWeight: 700, color: "#f8fafc" }}
+            >
+              Unlock Investigation Hint?
+            </h3>
+            <p
+              className="ieee-modal-msg"
+              id="hint-confirm-description"
+              style={{ fontSize: 13.5, color: "#94a3b8" }}
+            >
+              Unlocking this hint will deduct{" "}
+              <strong>{hintModal.penalty ?? 20} points</strong> from your
+              investigation score.
+            </p>
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                marginTop: 20,
+              }}
+            >
+              <button
+                onClick={() => setHintModal(null)}
+                disabled={unlockingHint}
+                className="ieee-outline-btn"
+                style={{ padding: "8px 16px", fontSize: 12 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleConfirmUnlockHint(hintModal)}
+                disabled={unlockingHint}
+                className="ieee-enter-btn"
+                style={{ padding: "8px 16px", fontSize: 12 }}
+              >
+                {unlockingHint ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  "Confirm & Unlock"
+                )}
+              </button>
+            </div>
+          </dialog>
         )}
       </div>
     </AppShell>

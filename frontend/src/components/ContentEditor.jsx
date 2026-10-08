@@ -19,6 +19,13 @@ export function ContentEditor({ value, game, busy, onSave, onClose }) {
       data: {
         ...b.data,
         [list]: b.data[list].filter((_, i) => i !== index),
+        ...(list === "clues"
+          ? {
+              questions: b.data.questions.map((q) =>
+                q.clueId === b.data.clues[index].id ? { ...q, clueId: "" } : q,
+              ),
+            }
+          : {}),
         ...(list === "questions"
           ? {
               hints: b.data.hints.map((h) =>

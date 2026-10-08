@@ -1223,11 +1223,13 @@ td code {
 @media (max-width: 650px) {
   .platform.workspace > aside {
     transform: translateX(-100%);
+    visibility: hidden;
     transition: transform 0.2s;
     width: 240px;
   }
   .platform.workspace > aside.open {
     transform: translateX(0);
+    visibility: visible;
   }
   .platform .workspace-main {
     margin-left: 0;

@@ -21,7 +21,7 @@ export function AdminTestControls({ game }) {
     if (game !== "calculator") return;
     let alive = true;
     const refresh = () =>
-      request("/games/calculator/state")
+      request("/games/calculator/sync", { method: "POST" })
         .then((data) => {
           if (alive) {
             apply(data);

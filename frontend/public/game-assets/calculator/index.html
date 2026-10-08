@@ -177,6 +177,7 @@ button.go.wide{width:100%;padding:13px;margin-top:6px;background-image:linear-gr
   <div class="mbtns"><button id="mCancel">Cancel</button><button class="go" id="mOk">Log Out</button></div></div></div>
 </div>
 
+<script src="../shared/camera.js"></script>
 <script type="module">
 const $ = s => document.querySelector(s), api = (u, o = {}) => fetch(u, o).then(r => r.ok ? (r.status === 204 ? null : r.json()) : r.json().catch(() => ({ error: r.status })).then(e => Promise.reject(e)));
 const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -228,7 +229,7 @@ async function connect() {
   const load = async () => {
     if (pending || closed) return; pending = true;
     try {
-      const response = await fetch('/api/games/calculator/state', {cache:'no-store', signal:AbortSignal.timeout(12000)});
+      const response = await fetch('/api/games/calculator/sync', {method:'POST', cache:'no-store', signal:AbortSignal.timeout(12000)});
       apply(await responseData(response));
     } catch (error) { failed(error); }
     finally { pending = false; }
@@ -362,13 +363,15 @@ async function startCamera() {
   $('#stab').textContent = 'Opening camera…';
   try {
     const modelModule = import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm'); modelModule.catch(() => {});
-    const video = $('#cam'); const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
+    const video = $('#cam'); const stream = await window.ArenaCamera.open({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } });
     if (generation !== cameraRun) { stream.getTracks().forEach(track => track.stop()); return; }
-    video.srcObject = stream; await video.play(); $('#stab').textContent = 'Camera on · loading hand tracker…';
-    const { HandLandmarker, FilesetResolver } = await modelModule;
-    const fset = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm');
+    video.srcObject = stream; await window.ArenaCamera.wait(video.play(),8000,'Camera preview timed out. Retry the camera.');
+    if (generation !== cameraRun) return;
+    $('#stab').textContent = 'Camera on · loading hand tracker…';
+    const { HandLandmarker, FilesetResolver } = await window.ArenaCamera.wait(modelModule,15000,'Hand tracker download timed out. Check your connection and retry.');
+    const fset = await window.ArenaCamera.wait(FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'),15000,'Hand tracker initialization timed out. Retry the camera.');
     const mk = delegate => HandLandmarker.createFromOptions(fset, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task', delegate }, runningMode: 'VIDEO', numHands: 2, minHandDetectionConfidence: 0.6, minHandPresenceConfidence: 0.6, minTrackingConfidence: 0.6 });
-    const lm = await mk('GPU').catch(() => mk('CPU'));
+    const lm = await window.ArenaCamera.wait(mk('GPU').catch(() => mk('CPU')),20000,'Hand model initialization timed out. Retry the camera.',lm=>lm.close());
     if (!running || generation !== cameraRun) { lm.close(); return; }
     landmarker = lm; $('#calBtn').disabled = false; $('#cameraStop').disabled = false;
     const win = [], confs = []; let lastSend = 0, lastT = -1, lastInference = -Infinity;

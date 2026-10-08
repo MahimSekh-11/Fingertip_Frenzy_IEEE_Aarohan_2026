@@ -39,8 +39,19 @@ export const scopeFor = (game, user) =>
   user.role === "ADMIN"
     ? `admin:${user._id}`
     : game === "memory"
-      ? String(user._id)
+      ? `${user.teamId}:${user._id}`
       : String(user.teamId);
+// Match historical Memory attempts by their original ownership, while new
+// attempts get a team-specific scope for the unique attempt index.
+export const sessionFilter = (game, user) =>
+  game === "memory" && user.role !== "ADMIN"
+    ? {
+        gameId: game,
+        teamId: user.teamId,
+        userId: user._id,
+        testMode: { $ne: true },
+      }
+    : { gameId: game, scope: scopeFor(game, user) };
 export const gameOrder = ["puzzle", "detective", "calculator", "memory"];
 export async function roundLock(game, user, tx) {
   if (user.role === "ADMIN") return null;
@@ -89,7 +100,7 @@ export async function startGame(game, user) {
         "AI Calculator requires exactly three team members for X, Y and Z.",
       );
     const scope = scopeFor(game, user);
-    let previous = await GameSession.findOne({ scope, gameId: game })
+    let previous = await GameSession.findOne(sessionFilter(game, user))
       .sort({ attempt: -1 })
       .session(tx);
     if (previous?.status === "IN_PROGRESS") {
@@ -205,10 +216,7 @@ export async function mutateGame(game, user, fn) {
   await transaction(async (tx) => {
     const team = await teamFor(user, tx);
     if (user.role !== "ADMIN") assertAvailable(await gameSettings(game, tx));
-    const doc = await GameSession.findOne({
-      scope: scopeFor(game, user),
-      gameId: game,
-    })
+    const doc = await GameSession.findOne(sessionFilter(game, user))
       .sort({ attempt: -1 })
       .session(tx);
     if (!doc) fail(409, "Start the game first.");
@@ -342,13 +350,25 @@ export async function calculatorState(user, event = {}) {
   });
   return view;
 }
-export async function getCurrent(game, user) {
+export async function calculatorReadState(user) {
+  const { doc, team } = await getCurrent("calculator", user);
+  if (!doc)
+    fail(409, "Connect to the calculator arena before reading its state.");
+  const presence = await CalculatorPresence.find({ sessionId: doc._id }).lean();
+  doc.state.presence = Object.fromEntries(
+    presence.map((p) => [String(p.userId), +p.expiresAt]),
+  );
+  const members = team.testMode
+    ? team.members
+    : await User.find({ _id: { $in: team.memberIds } });
+  return calculatorView(doc, team, members, user);
+}
+export async function getCurrent(game, user, { finalize = false } = {}) {
   const team = await teamFor(user);
   if (user.role !== "ADMIN") assertAvailable(await gameSettings(game));
-  const doc = await GameSession.findOne({
-    scope: scopeFor(game, user),
-    gameId: game,
-  }).sort({ attempt: -1 });
+  const doc = await GameSession.findOne(sessionFilter(game, user)).sort({
+    attempt: -1,
+  });
   if (doc?.status === "ABANDONED") return { team, doc: null };
   if (
     doc?.status === "IN_PROGRESS" &&
@@ -356,8 +376,13 @@ export async function getCurrent(game, user) {
     doc.state.expiresAt &&
     Date.now() > doc.state.expiresAt
   ) {
-    await mutateGame(game, user, () => ({}));
-    return { team, doc: await GameSession.findById(doc._id) };
+    if (finalize) {
+      await mutateGame(game, user, () => ({}));
+      return { team, doc: await GameSession.findById(doc._id) };
+    }
+    // A read can report expiry, but persisting a result requires an explicit POST.
+    doc.status = "COMPLETED";
+    doc.completedAt = new Date(doc.state.expiresAt);
   }
   return { team, doc };
 }

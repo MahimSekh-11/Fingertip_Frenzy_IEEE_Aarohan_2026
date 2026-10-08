@@ -34,7 +34,8 @@
 .platform.arena-workspace .detective-layout>div{min-height:0;overflow:auto;gap:8px!important}
 .platform.arena-workspace .detective-layout>div>div{padding:12px!important}
 .platform.arena-workspace .detective-layout p{font-size:13px!important;line-height:1.45!important}
-.arena-radio{position:absolute;opacity:0;width:1px;height:1px}
+.platform.arena-workspace .detective-option{position:relative}
+.platform.arena-workspace input.arena-radio{position:absolute;left:8px;top:8px;opacity:0;width:1px;height:1px;min-width:0;min-height:0;margin:0;padding:0;clip-path:inset(50%);overflow:hidden}
 .detective-option:focus-within{outline:2px solid #38bdf8;outline-offset:2px}
 @media(max-width:700px){
  .platform.arena-workspace .workspace-main>main{padding:6px;gap:5px}
@@ -138,3 +139,13 @@
 @media(max-width:700px){.platform.arena-workspace .detective-layout{grid-template-rows:minmax(140px,.75fr) minmax(180px,1fr)}.platform.arena-workspace .detective-layout>.detective-evidence-column{padding:8px;gap:5px!important}.detective-evidence-dialog{padding:12px}}
 
 .detective-evidence-dialog{position:fixed;inset:0;margin:auto}
+.detective-hint-dialog{position:fixed;inset:0;margin:auto;width:min(400px,calc(100vw - 24px));max-height:calc(100dvh - 24px);overflow:auto;color:#e2e8f0}
+.detective-hint-dialog::backdrop{background:#020712dd;backdrop-filter:blur(8px)}
+@media(max-width:700px){
+ .platform.arena-workspace .pg-board-card{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:4px 6px auto minmax(80px,1fr) auto auto auto auto;overflow:auto}
+ .platform.arena-workspace .pg-board-wrap{grid-column:1;grid-row:4;place-self:center;height:100%;width:auto;aspect-ratio:1;max-width:100%;max-height:100%;min-width:0;min-height:0}
+ .platform.arena-workspace .pg-tray{grid-column:1;grid-row:5}
+ .platform.arena-workspace .pg-hint{grid-column:1;grid-row:6}
+ .platform.arena-workspace .pg-feedback{grid-column:1;grid-row:7}
+ .platform.arena-workspace .pg-controls{grid-column:1;grid-row:8}
+}

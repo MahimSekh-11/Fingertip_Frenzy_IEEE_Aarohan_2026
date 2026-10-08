@@ -165,7 +165,12 @@ export async function leaderboard({
                     branches: Object.keys(defaults).map((id) => ({
                       case: { $eq: ["$$r._id", id] },
                       // oxlint-disable-next-line unicorn/no-thenable
-                      then: (settings[id] || defaults[id]).weight * 10,
+                      then:
+                        (Number.isFinite(settings[id]?.weight) &&
+                        settings[id].weight >= 0 &&
+                        settings[id].weight <= 100
+                          ? settings[id].weight
+                          : defaults[id].weight) * 10,
                     })),
                     default: 0,
                   },
@@ -180,24 +185,25 @@ export async function leaderboard({
   if (game)
     pipeline.push({ $set: { total: { $ifNull: [`$scores.${game}`, 0] } } });
   // Participant scores are filtered before aggregation and never ranked against other teams.
-  if (!teamId) pipeline.push(
-    {
-      $set: {
-        ranking: {
-          negativeTotal: { $multiply: [-1, "$total"] },
-          negativeCompleted: { $multiply: [-1, "$completed"] },
-          completionTime: "$completionTime",
-          team: "$_id",
+  if (!teamId)
+    pipeline.push(
+      {
+        $set: {
+          ranking: {
+            negativeTotal: { $multiply: [-1, "$total"] },
+            negativeCompleted: { $multiply: [-1, "$completed"] },
+            completionTime: "$completionTime",
+            team: "$_id",
+          },
         },
       },
-    },
-    {
-      $setWindowFields: {
-        sortBy: { ranking: 1 },
-        output: { rank: { $documentNumber: {} } },
+      {
+        $setWindowFields: {
+          sortBy: { ranking: 1 },
+          output: { rank: { $documentNumber: {} } },
+        },
       },
-    },
-  );
+    );
   if (search)
     pipeline.push({
       $match: {

@@ -35,6 +35,29 @@ import { leaderboard } from "../services/leaderboard.js";
 import { cropPuzzle } from "../services/images.js";
 const router = Router();
 router.use(requireAuth, requireAdmin, rateLimit("admin", 240));
+function recordFilter(entity, query) {
+  if (entity === "results")
+    return query.gameId ? { gameId: gameId.parse(query.gameId) } : {};
+  const q = search(query.search);
+  return {
+    status: { $ne: "DELETED" },
+    ...(entity === "students" ? { role: { $ne: "ADMIN" } } : {}),
+    ...(q
+      ? {
+          $or: (entity === "students"
+            ? ["name", "rollNo", "phoneNo"]
+            : ["name", "code"]
+          ).map((k) => ({ [k]: { $regex: q, $options: "i" } })),
+        }
+      : {}),
+  };
+}
+const standingsOptions = (query) => ({
+  ...pagination(query),
+  search: search(query.search),
+  game: query.gameId ? gameId.parse(query.gameId) : null,
+  completedOnly: query.completed === "true",
+});
 async function audited(req, action, type, id, fn) {
   let output;
   await transaction(async (tx) => {
@@ -60,7 +83,7 @@ async function list(Model, req, filter = {}) {
   const { page, limit } = pagination(req.query);
   const [rows, total] = await Promise.all([
     Model.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
       .lean(),
@@ -500,7 +523,7 @@ router.patch(
   asyncRoute(async (req, res) => {
     const game = gameId.parse(req.params.gameId),
       b = schemas[game].parse(req.body);
-    if (b.startAt && b.endAt && b.startAt >= b.endAt)
+    if (b.startAt && b.endAt && +new Date(b.startAt) >= +new Date(b.endAt))
       fail(400, "The end time must follow the start time.");
     res.json(
       await audited(req, "GAME_SETTINGS", "GameSetting", game, async (tx) => {
@@ -698,18 +721,13 @@ router.get(
       .parse(req.params.entity);
     let rows;
     if (entity === "leaderboard")
-      rows = (
-        await leaderboard({
-          limit: 100,
-          page: z.coerce.number().int().min(1).default(1).parse(req.query.page),
-        })
-      ).rows;
+      rows = (await leaderboard(standingsOptions(req.query))).rows;
     else
       rows = (
         await list(
           { students: User, teams: Team, results: Result }[entity],
-          { query: { ...req.query, limit: 100 } },
-          entity === "students" ? { role: { $ne: "ADMIN" } } : {},
+          req,
+          recordFilter(entity, req.query),
         )
       ).rows;
     const keys = {

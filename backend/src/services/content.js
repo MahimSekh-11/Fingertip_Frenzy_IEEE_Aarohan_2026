@@ -77,7 +77,7 @@ export const detectiveData = z
     clues: z
       .array(
         z.object({
-          id: z.string().max(100),
+          id: z.string().min(1).max(100),
           title: z.string().max(200),
           description: text,
           evidence: text,
@@ -91,6 +91,22 @@ export const detectiveData = z
   })
   .strict()
   .superRefine((d, c) => {
+    const clues = new Set(d.clues.map((clue) => clue.id));
+    const questions = new Set(d.questions.map((question) => question.id));
+    if (clues.size !== d.clues.length)
+      c.addIssue({ code: "custom", message: "Clue IDs must be unique." });
+    for (const question of d.questions)
+      if (question.clueId && !clues.has(question.clueId))
+        c.addIssue({
+          code: "custom",
+          message: "Each linked clue must exist in this case.",
+        });
+    for (const hint of d.hints)
+      if (hint.questionId && !questions.has(hint.questionId))
+        c.addIssue({
+          code: "custom",
+          message: "Each linked hint question must exist in this case.",
+        });
     if (
       new Set(d.questions.map((q) => q.id)).size !== d.questions.length ||
       new Set(d.hints.map((h) => h.id)).size !== d.hints.length

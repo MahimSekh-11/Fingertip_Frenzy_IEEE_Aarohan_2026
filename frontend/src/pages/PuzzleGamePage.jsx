@@ -188,7 +188,11 @@ export function PuzzleGamePage() {
       totalRef.current = Math.max(
         totalRef.current,
         rs,
-        Number(data.session?.durationSeconds) || 0,
+        Number(data.session?.durationSeconds) ||
+          (Number.isFinite(exactDeadline) &&
+          Number.isFinite(Date.parse(data.session?.startTime))
+            ? (exactDeadline - Date.parse(data.session.startTime)) / 1000
+            : 0),
       );
       if (rs > 0) expiryFetchedRef.current = false;
       setRemaining(
@@ -205,7 +209,7 @@ export function PuzzleGamePage() {
       if (silent && fetchingRef.current) return;
       fetchingRef.current = true;
       try {
-        const data = await request("/game/r1/state");
+        const data = await request("/game/r1/sync", { method: "POST" });
         if (!mounted.current) return;
         applyState(data);
         setLoadError("");

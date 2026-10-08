@@ -203,7 +203,7 @@ export function AdminRecords({ entity, embedded = false, onChange }) {
           <div className="actions">
             <a
               className="button secondary"
-              href={`/api/admin/export/${entity}?page=${page}`}
+              href={`/api/admin/export/${entity}?page=${page}&search=${encodeURIComponent(search)}`}
             >
               <Download size={16} /> Export page
             </a>
@@ -728,7 +728,7 @@ export function AdminResults({ gameId }) {
         <h2>Automatic results</h2>
         <a
           className="button secondary"
-          href={`/api/admin/export/results?page=${page}`}
+          href={`/api/admin/export/results?page=${page}${gameId ? "&gameId=" + gameId : ""}`}
         >
           Export page
         </a>

@@ -30,16 +30,10 @@ export function Leaderboard({ admin = false }) {
     return () => clearTimeout(t);
   }, [search]);
   const path = `/admin/leaderboard?page=${page}&search=${encodeURIComponent(query)}${filter ? "&gameId=" + filter : ""}${completed ? "&completed=true" : ""}`,
-    r = useResource(() => request(path), [path]);
-  useEffect(() => {
-    const id = setInterval(r.reload, 30000);
-    return () => clearInterval(id);
-  }, []);
-  const podium = useResource(() => request("/admin/leaderboard?limit=3"), []);
-  useEffect(() => {
-    const timer = setInterval(podium.reload, 30000);
-    return () => clearInterval(timer);
-  }, []);
+    r = useResource(() => request(path), [path], { refreshMs: 30000 });
+  const podium = useResource(() => request("/admin/leaderboard?limit=3"), [], {
+    refreshMs: 30000,
+  });
   const body = (
     <>
       <div className="podium">
@@ -70,7 +64,7 @@ export function Leaderboard({ admin = false }) {
           {admin && (
             <a
               className="button secondary"
-              href="/api/admin/export/leaderboard"
+              href={`/api/admin/export/leaderboard${path.slice(path.indexOf("?"))}`}
             >
               <Download size={16} /> Export page
             </a>
