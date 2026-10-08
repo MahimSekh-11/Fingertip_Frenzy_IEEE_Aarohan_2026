@@ -1,4 +1,6 @@
 import { randomInt, createHash } from "node:crypto";
+// Allow several missed polls/cold starts before freezing the shared clock.
+export const CALCULATOR_PRESENCE_MS = 30000;
 // Identical expression templates and constraints to the original Python generator.
 const templates = {
   1: [
@@ -144,15 +146,18 @@ export function advanceCalculator(
   user,
   event = {},
   now = Date.now(),
+  presence = null,
 ) {
   const s = session.state,
     cfg = session.config,
     uid = String(user._id);
   // Presence is a renewable lease, persisted in MongoDB and shared across function instances.
-  const priorPresence = s.presence[uid] || 0;
-  s.presence[uid] = now + 5000;
+  const priorPresence = presence ? presence[uid] : s.presence[uid] || 0;
+  if (presence) s.presence = presence;
+  else s.presence[uid] = now + CALCULATOR_PRESENCE_MS;
   if (session.testMode) {
-    for (const id of team.memberIds) s.presence[String(id)] = now + 5000;
+    for (const id of team.memberIds)
+      s.presence[String(id)] = now + CALCULATOR_PRESENCE_MS;
   }
   const allOnline =
     team.memberIds.length === 3 &&
@@ -180,6 +185,18 @@ export function advanceCalculator(
         : s.presence[String(id)] || 0,
     ),
   );
+  // Advance a countdown that ended while everyone was still connected before
+  // calculating the pause. Otherwise a late reconnect grants a fresh question timer.
+  if (
+    s.phase === "COUNTDOWN" &&
+    s.hold === null &&
+    s.deadline &&
+    s.deadline <= Math.min(now, onlineBoundary || now)
+  ) {
+    s.phase = "PLAYING";
+    s.deadline += s.question.time_limit * 1000;
+    s.changed = now;
+  }
   if (
     live &&
     !session.testMode &&
@@ -280,6 +297,8 @@ export function calculatorView(session, team, members, user, now = Date.now()) {
     q = s.question;
   return {
     testMode: Boolean(session.testMode),
+    serverNow: now,
+    attempt: session.attempt || 1,
     sessionId: String(session._id),
     revision: session.revision || 0,
     team_id: String(team._id),
@@ -287,6 +306,7 @@ export function calculatorView(session, team, members, user, now = Date.now()) {
     code: team.code,
     phase: s.phase,
     score: session.score,
+    minConfidence: session.config.minConf,
     log: s.log,
     attempts: 0,
     remaining: session.testMode

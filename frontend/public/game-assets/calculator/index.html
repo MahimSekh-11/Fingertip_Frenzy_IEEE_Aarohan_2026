@@ -142,8 +142,9 @@ button.go.wide{width:100%;padding:13px;margin-top:6px;background-image:linear-gr
   <div id="endCard" class="glass hero hide"><h2>🏁 Game over</h2><p class="mut" id="endSub"></p><div class="kpis" id="endKpis"></div></div>
   <div class="row">
     <div class="glass" id="leftPanel">
+      <p id="syncStatus" class="mut small" role="status" aria-live="polite">Connecting to your team…</p>
       <div id="play" class="hide"><p id="readout" class="mono" style="font-size:20px"></p>
-        <p id="lockHint" class="mut" style="margin:0"></p></div>
+        <p id="lockHint" class="mut" style="margin:0"></p><button id="clearDigit" class="ghost" style="padding:5px 10px;font-size:12px">Clear my saved digit</button></div>
       <div id="practiceRoles" class="hide"><p class="mut">Private practice · choose a variable, then show its digit.</p><div class="rolebtns"><button data-r="X">Player X</button><button data-r="Y">Player Y</button><button data-r="Z">Player Z</button></div></div>
       <table id="log" class="mono" style="margin-top:10px"></table>
     </div>
@@ -203,34 +204,68 @@ $('#joinBtn').onclick = async () => {
 };
 async function connect() {
   show('game');
-  let pending = false, eventPending = false;
+  let pending = false, eventPending = false, activeValue = null, closed = false;
+  const queue = [];
   function apply(data) {
-    if (S?.sessionId === data.sessionId && S.revision > data.revision) return;
+    if (closed || (S?.attempt && data.attempt < S.attempt)) return;
+    if (S?.sessionId === data.sessionId && (S.revision > data.revision ||
+      (S.revision === data.revision && S.serverNow > data.serverNow))) return;
     S = data; rem0 = S.remaining; t0 = Date.now(); render();
+    $('#syncStatus').textContent = 'Team synchronized · saved digits stay until changed or cleared';
+  }
+  async function responseData(response) {
+    if (response.status === 401) {
+      ws.close(); stopCamera();
+      parent.dispatchEvent(new parent.Event('session-expired'));
+    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || 'Unable to synchronize. Retrying…');
+    return data;
+  }
+  function failed(error) {
+    $('#syncStatus').textContent = error.message || 'Connection interrupted. Retrying…';
   }
   const load = async () => {
-    if (pending) return; pending = true;
+    if (pending || closed) return; pending = true;
     try {
-      const response = await fetch('/api/games/calculator/state');
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message);
-      apply(data);
-    } catch (error) { $('#phaseTxt').textContent = error.message; }
+      const response = await fetch('/api/games/calculator/state', {cache:'no-store', signal:AbortSignal.timeout(12000)});
+      apply(await responseData(response));
+    } catch (error) { failed(error); }
     finally { pending = false; }
   };
-  ws = {readyState:1, close:()=>clearInterval(timer), send:async value=>{
-    if (eventPending) return;
-    eventPending = true;
-    try { const response = await fetch('/api/games/calculator/event', {method:'POST', headers:{'Content-Type':'application/json'}, body:value});
-      const data = await response.json(); if (!response.ok) throw new Error(data.message);
-      apply(data);
-    } catch(error) { $('#phaseTxt').textContent=error.message; }
-    finally { eventPending = false; }
+  ws = {readyState:1, close:()=>{
+    closed = true; ws.readyState = 0; clearInterval(timer); queue.length = 0;
+    window.removeEventListener('focus', load); document.removeEventListener('visibilitychange', visible);
+  }, send:async value=>{
+    if (closed) return;
+    if (eventPending) {
+      if ((value === activeValue && !queue.length) || queue.at(-1) === value) return;
+      // Keep the newest gesture while preserving ordered start/role controls.
+      if (JSON.parse(value).type === 'digit') {
+        for (let i = queue.length - 1; i >= 0; i--) if (JSON.parse(queue[i]).type === 'digit') queue.splice(i, 1);
+      }
+      queue.push(value); return;
+    }
+    eventPending = true; activeValue = value;
+    try {
+      do {
+        const event = JSON.parse(activeValue);
+        if (!event.questionId || event.questionId === S?.question?.question_id) {
+          const response = await fetch('/api/games/calculator/event', {method:'POST', headers:{'Content-Type':'application/json'}, body:activeValue, signal:AbortSignal.timeout(12000)});
+          apply(await responseData(response));
+        }
+        activeValue = queue.shift();
+      } while (activeValue && !closed);
+    } catch(error) { queue.length = 0; failed(error); }
+    finally { eventPending = false; activeValue = null; }
   }};
-  const timer = setInterval(load, 1000);
+  const visible = () => { if (!document.hidden) load(); };
+  const timer = setInterval(load, 750);
+  window.addEventListener('focus', load); document.addEventListener('visibilitychange', visible);
   startCamera(); await load();
 }
-const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify(m));
+const send = m => ws && ws.readyState === 1 && ws.send(JSON.stringify({...m, sessionId:S?.sessionId}));
+$('#clearDigit').onclick = () => send({type:'digit',digit:null,conf:0,questionId:S?.question?.question_id});
 document.querySelectorAll('[data-r]').forEach(b => b.onclick = () => send({ type: 'role', role: b.dataset.r }));
 $('#startBtn').onclick = () => send({ type: 'start' });
 
@@ -261,7 +296,8 @@ function render() {
   $('#readout').textContent = `X=${v.X ?? '?'}  Y=${v.Y ?? '?'}  Z=${v.Z ?? '?'}`;
   if (s.res !== null) $('#readout').textContent += ` → Output: ${s.res} / Target: ${q?.target}`;
   $('#practiceRoles').classList.toggle('hide', !s.testMode || ph !== 'PLAYING');
-  $('#lockHint').textContent = s.locking ? (s.solutionValid ? 'Correct combination. Hold all three digits steady to confirm.' : 'Keep adjusting your digits: match the target and satisfy the stated condition.') : 'Each player shows a digit 0–9.';
+  $('#lockHint').textContent = s.locking ? (s.solutionValid ? 'Correct combination. Confirming your saved digits…' : 'Keep adjusting your digits: match the target and satisfy the stated condition.') : 'Each player shows a digit 0–9. Saved digits stay when you lower your hand.';
+  $('#clearDigit').disabled = s.paused || s.values[mine] === undefined;
   // a short non-blocking toast about the question that just ended; the next question is already running
   if (s.last && s.n !== toastN) { toastN = s.n; toast(s.last.ok ? `✓ Correct! +${s.last.pts} (speed bonus ${s.last.bonus})` : '⏱ Time up, next question', s.last.ok ? 'ok' : 'bad'); }
   $('#log').innerHTML = s.log.map(l => `<tr><td>Question ${l.n}</td><td style="text-align:right;color:var(--${l.ok ? 'ok' : 'bad'})">${l.pts >= 0 ? '+' : ''}${l.pts}</td></tr>`).join('') + (s.log.length ? `<tr><th>Total</th><th style="text-align:right">${s.score}</th></tr>` : '');
@@ -279,7 +315,7 @@ setInterval(tickTimer, 200);
 
 // ================= COMPUTER VISION (on-device, up to TWO hands, digits 0–9) =================
 // 0 = fist | 1–5 = fingers on one hand | 6–9 = open hand (5) + 1–4 on the other hand. Digit = total extended fingers over both hands.
-const TUNE = { win: 10, need: 8, alpha: 0.6, margin: 0.01, minPalm: 0.05, lostFrames: 25 };
+const TUNE = { win: 6, need: 5, alpha: 0.6, margin: 0.01, minPalm: 0.05 };
 const D = (a, b) => Math.hypot(a.x - b.x, a.y - b.y), TIPS = [4, 8, 12, 16, 20];
 // thumb: tip→pinkyMCP / thumbMCP→pinkyMCP ; other fingers: tip→wrist / MCP→wrist  (order: thumb, index, middle, ring, pinky)
 const feats = l => [D(l[4], l[17]) / D(l[2], l[17]), D(l[8], l[0]) / D(l[5], l[0]), D(l[12], l[0]) / D(l[9], l[0]), D(l[16], l[0]) / D(l[13], l[0]), D(l[20], l[0]) / D(l[17], l[0])];
@@ -335,11 +371,12 @@ async function startCamera() {
     const lm = await mk('GPU').catch(() => mk('CPU'));
     if (!running || generation !== cameraRun) { lm.close(); return; }
     landmarker = lm; $('#calBtn').disabled = false; $('#cameraStop').disabled = false;
-    const win = [], confs = []; let lost = 0, lastSend = 0, lastT = -1;
+    const win = [], confs = []; let lastSend = 0, lastT = -1, lastInference = -Infinity;
     const loop = () => {
       if (!running || generation !== cameraRun) return;
-      if (video.currentTime !== lastT) {
-        lastT = video.currentTime; const now = performance.now(), r = lm.detectForVideo(video, now), A = video.videoWidth / video.videoHeight;
+      if (video.currentTime !== lastT && performance.now() - lastInference >= 66) {
+        lastT = video.currentTime; const now = performance.now(); lastInference = now;
+        const r = lm.detectForVideo(video, now), A = video.videoWidth / video.videoHeight;
         let c = null, why = 'No hand', hs = 1, total = 0, ok = r.landmarks.length > 0, calF = null; const seen = new Set(), hands = [];
         r.landmarks.forEach((raw, k) => {
           let key = r.handednesses[k][0].categoryName; if (seen.has(key)) key += k; seen.add(key); hs = Math.min(hs, r.handednesses[k][0].score);
@@ -354,16 +391,15 @@ async function startCamera() {
         if (cal) $('#stab').textContent = calStep(calF, now);
         else if (ok) { if (total <= 9) c = total; else why = 'Too many fingers (max 9)'; }
         win.push(c); confs.push(c !== null ? hs : 0); if (win.length > TUNE.win) { win.shift(); confs.shift(); }
-        lost = c === null ? lost + 1 : 0;
         const counts = new Array(10).fill(0); win.forEach(v => v !== null && counts[v]++);
-        const best = counts.indexOf(Math.max(...counts)), stable = !cal && counts[best] >= TUNE.need ? best : null;   // 8 of the last 10 frames
-        const conf = stable !== null ? confs.reduce((a, b) => a + b, 0) / win.length : 0;   // weakest hand score x share of valid frames
+        const best = counts.indexOf(Math.max(...counts)), candidate = !cal && counts[best] >= TUNE.need ? best : null;
+        const conf = candidate !== null ? confs.reduce((sum, v, i) => sum + (win[i] === candidate ? v : 0), 0) / counts[best] : 0;
+        const stable = conf >= (S?.minConfidence ?? 0.75) ? candidate : null;
         if (!cal) $('#stab').textContent = stable !== null ? `✓ stable ${stable}` : (c !== null ? 'Hold steady…' : why);
         $('#det').textContent = stable ?? c ?? '–'; $('#bar').style.width = Math.min(100, counts[best] / TUNE.need * 100) + '%'; draw(video, hands);
         const mine = S && S.you && S.values ? S.values[S.you.role] : undefined;
-        if (!cal && S && S.phase === 'PLAYING' && !S.paused && S.you.role && now - lastSend > 400) {   // only the digit (or "hands gone") leaves the device
+        if (!cal && S && S.phase === 'PLAYING' && !S.paused && S.you.role && now - lastSend > 400) {
           if (stable !== null && stable !== mine) { lastSend = now; send({ type: 'digit', digit: stable, conf, questionId:S.question?.question_id }); }
-          else if (stable === null && lost >= TUNE.lostFrames && mine !== undefined) { lastSend = now; send({ type: 'digit', digit: null, conf:0, questionId:S.question?.question_id }); }
         }
       }
       requestAnimationFrame(() => {

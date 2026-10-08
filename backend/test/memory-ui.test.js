@@ -26,7 +26,11 @@ test("Calculator ignores late polling responses and serializes gesture writes", 
     renders = [];
   let poll;
   const context = {
-    fetch: (path) => new Promise((resolve) => requests.push({ path, resolve })),
+    AbortSignal,
+    window: { addEventListener() {}, removeEventListener() {} },
+    document: { addEventListener() {}, removeEventListener() {} },
+    fetch: (path, options) =>
+      new Promise((resolve) => requests.push({ path, options, resolve })),
     setInterval: (fn) => {
       poll = fn;
       return 1;
@@ -38,7 +42,7 @@ test("Calculator ignores late polling responses and serializes gesture writes", 
     render: () => renders.push(context.state().revision),
   };
   runInNewContext(
-    `let S=null, ws=null, rem0=0, t0=0; ${connect}; this.start=connect; this.state=()=>S; this.event=()=>ws.send('{}');`,
+    `let S=null, ws=null, rem0=0, t0=0; ${connect}; this.start=connect; this.state=()=>S; this.event=(value='{}')=>ws.send(value);`,
     context,
   );
   const respond = (request, revision) =>
@@ -59,6 +63,127 @@ test("Calculator ignores late polling responses and serializes gesture writes", 
   await pendingPoll;
   assert.equal(context.state().revision, 3);
   assert.deepEqual(renders, [1, 3]);
+  requests.length = 0;
+  const first = context.event('{"type":"digit","digit":1}');
+  await context.event('{"type":"digit","digit":2}');
+  await context.event('{"type":"digit","digit":3}');
+  assert.equal(requests.length, 1);
+  respond(requests.shift(), 4);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(
+    JSON.parse(requests[0].options.body).digit,
+    3,
+    "Send the newest queued gesture after the in-flight write",
+  );
+  respond(requests.shift(), 5);
+  await first;
+});
+
+test("Calculator keeps an accepted digit through hand loss and limits inference work", async () => {
+  const html = readFileSync(
+    new URL(
+      "../../frontend/public/game-assets/calculator/index.html",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  const camera = html
+    .slice(
+      html.indexOf("async function startCamera()"),
+      html.indexOf("addEventListener('pagehide'"),
+    )
+    .replace(
+      "import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/+esm')",
+      "Promise.resolve(model)",
+    );
+  const frames = [],
+    sent = [],
+    nodes = new Map();
+  let now = 0,
+    detections = 0,
+    handVisible = true;
+  const video = {
+    currentTime: 0,
+    videoWidth: 640,
+    videoHeight: 480,
+    play: async () => {},
+  };
+  const state = {
+    phase: "PLAYING",
+    paused: false,
+    you: { role: "X" },
+    values: {},
+    question: { question_id: "Q1" },
+  };
+  const lm = {
+    detectForVideo: () => {
+      detections++;
+      return handVisible
+        ? {
+            landmarks: [Array.from({ length: 21 }, () => ({ x: 0.5, y: 0.5 }))],
+            handednesses: [[{ categoryName: "Left", score: 0.99 }]],
+          }
+        : { landmarks: [], handednesses: [] };
+    },
+  };
+  const context = {
+    running: false,
+    cameraRun: 0,
+    landmarker: null,
+    H: {},
+    cal: null,
+    S: state,
+    TUNE: { win: 6, need: 5, alpha: 0.6, margin: 0.01, minPalm: 0.05 },
+    TH: { on: [1, 1, 1, 1, 1], off: [0.5, 0.5, 0.5, 0.5, 0.5] },
+    performance: { now: () => now },
+    requestAnimationFrame: (fn) => frames.push(fn),
+    navigator: {
+      mediaDevices: { getUserMedia: async () => ({ getTracks: () => [] }) },
+    },
+    model: {
+      FilesetResolver: { forVisionTasks: async () => ({}) },
+      HandLandmarker: { createFromOptions: async () => lm },
+    },
+    $: (key) => {
+      if (key === "#cam") return video;
+      if (!nodes.has(key))
+        nodes.set(key, { classList: { add() {}, remove() {} }, style: {} });
+      return nodes.get(key);
+    },
+    D: () => 0.2,
+    feats: () => [0, 2, 2, 0, 0],
+    draw() {},
+    stopCamera() {},
+    send: (event) => {
+      sent.push(event);
+      state.values.X = event.digit;
+    },
+  };
+  runInNewContext(camera + ";this.start=startCamera", context);
+  await context.start();
+  for (let i = 1; i <= 30; i++) {
+    now = i * 34;
+    video.currentTime = i / 30;
+    frames.shift()();
+  }
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].digit, 2);
+  assert.ok(
+    detections <= 16,
+    "Do not run synchronous inference on every video frame",
+  );
+  handVisible = false;
+  for (let i = 31; i <= 150; i++) {
+    now = i * 34;
+    video.currentTime = i / 30;
+    frames.shift()();
+  }
+  assert.equal(
+    sent.length,
+    1,
+    "Brief or sustained hand loss must never erase a saved digit",
+  );
+  assert.equal(state.values.X, 2);
 });
 
 test("Memory rejects ten fingers and clears old detections when the camera stops", () => {

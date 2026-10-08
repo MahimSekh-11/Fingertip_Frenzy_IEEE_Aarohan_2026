@@ -18,6 +18,8 @@ export function hashPassword(password) {
   return `${salt}:${scryptSync(password, salt, 64).toString("hex")}`;
 }
 export function verifyPassword(password, hash = "") {
+  if (typeof hash !== "string" || !/^[a-f0-9]{32}:[a-f0-9]{128}$/i.test(hash))
+    return false;
   const [salt, key] = hash.split(":");
   if (!salt || !key) return false;
   const a = Buffer.from(key, "hex"),

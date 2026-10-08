@@ -117,6 +117,15 @@ export const GameSession = model(
     [{ score: -1 }, {}],
   ],
 );
+// Heartbeats never contend with teammates' game/score transactions.
+export const CalculatorPresence = model(
+  "PlatformCalculatorPresence",
+  { sessionId: id, userId: id, expiresAt: Date },
+  [
+    [{ sessionId: 1, userId: 1 }, { unique: true }],
+    [{ expiresAt: 1 }, { expireAfterSeconds: 3600 }],
+  ],
+);
 export const Result = model(
   "PlatformGameResult",
   {

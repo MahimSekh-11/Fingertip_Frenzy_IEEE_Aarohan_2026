@@ -441,6 +441,107 @@ test("Detective completion automatically unlocks Calculator", async () => {
     false,
   );
 });
+test("Three independent Calculator sessions synchronize concurrent digits, tolerate jitter and recover offline teammates", async () => {
+  const peers = players.slice(0, 3);
+  const initial = await Promise.all(
+    peers.map((p) => p.get("/api/games/calculator/state")),
+  );
+  for (const r of initial) assert.equal(r.status, 200, JSON.stringify(r.body));
+  const sameAttempt = new Set(initial.map((r) => r.body.sessionId));
+  assert.equal(sameAttempt.size, 1);
+  assert.equal(
+    await models.GameSession.countDocuments({ gameId: "calculator" }),
+    1,
+  );
+  const ready = await Promise.all(
+    peers.map((p) => p.get("/api/games/calculator/state")),
+  );
+  for (const r of ready) assert.ok(r.body.players.every((p) => p.online));
+  const revision = ready[0].body.revision;
+  for (let i = 0; i < 3; i++) {
+    const poll = await Promise.all(
+      peers.map((p) => p.get("/api/games/calculator/state")),
+    );
+    for (const r of poll)
+      assert.equal(
+        r.body.revision,
+        revision,
+        "Heartbeat must not rewrite shared game state",
+      );
+  }
+  const doc = await models.GameSession.findOne({ gameId: "calculator" });
+  doc.state.phase = "PLAYING";
+  doc.state.deadline = Date.now() + 40000;
+  doc.state.question = {
+    ...doc.state.question,
+    expr: "X+Y+Z",
+    target: 27,
+    con: null,
+  };
+  doc.markModified("state");
+  await doc.save();
+  const events = await Promise.all(
+    peers.map((p, i) =>
+      call(p, "post", "/games/calculator/event", {
+        type: "digit",
+        digit: i + 2,
+        conf: 1,
+        questionId: doc.state.question.id,
+        sessionId: String(doc._id),
+      }),
+    ),
+  );
+  for (const r of events) assert.equal(r.status, 200, JSON.stringify(r.body));
+  const expected = Object.fromEntries(
+    events.map((r, i) => [r.body.you.role, i + 2]),
+  );
+  // An eight-second gap exceeded the old lease; all three remain online now.
+  await models.CalculatorPresence.updateMany(
+    { sessionId: doc._id },
+    { $set: { expiresAt: new Date(Date.now() + 22000) } },
+  );
+  const synced = await Promise.all(
+    peers.map((p) => p.get("/api/games/calculator/state")),
+  );
+  for (const r of synced) {
+    assert.deepEqual(r.body.values, expected);
+    assert.equal(r.body.paused, false);
+    assert.ok(r.body.players.every((p) => p.online));
+  }
+  const offlineId = synced[2].body.you.id;
+  await models.CalculatorPresence.updateOne(
+    { sessionId: doc._id, userId: offlineId },
+    { $set: { expiresAt: new Date(Date.now() - 1000) } },
+  );
+  const paused = await peers[0].get("/api/games/calculator/state");
+  assert.equal(paused.body.paused, true);
+  assert.deepEqual(paused.body.values, expected);
+  const resumed = await peers[2].get("/api/games/calculator/state");
+  assert.equal(resumed.body.paused, false);
+  assert.deepEqual(resumed.body.values, expected);
+  const stale = await call(peers[0], "post", "/games/calculator/event", {
+    type: "digit",
+    digit: 9,
+    conf: 1,
+    questionId: doc.state.question.id,
+    sessionId: "old-attempt",
+  });
+  assert.equal(stale.status, 409);
+  const clear = await call(peers[0], "post", "/games/calculator/event", {
+    type: "digit",
+    digit: null,
+    conf: 0,
+    questionId: doc.state.question.id,
+    sessionId: String(doc._id),
+  });
+  delete expected[clear.body.you.role];
+  for (const p of peers)
+    assert.deepEqual(
+      (await p.get("/api/games/calculator/state")).body.values,
+      expected,
+    );
+});
+
 test("Calculator shared team state and equation scoring are authoritative in MongoDB", async () => {
   let users = await models.User.find({ teamId: team._id }).sort({ rollNo: 1 });
   await call(players[0], "post", "/games/calculator/start", {});
@@ -1370,4 +1471,59 @@ test("Admins can complete all games privately while competition gates and scores
     (await second.get("/api/v1/game/r1/state")).body.hasStarted,
     false,
   );
+});
+
+test("Authentication handles shared Wi-Fi, normalized identities, malformed sessions and invalid admin hashes", async () => {
+  const ip = "203.0.113.88";
+  const attempts = await Promise.all(
+    Array.from({ length: 20 }, (_, i) =>
+      call(
+        supertest.agent(app).set("X-Forwarded-For", ip),
+        "post",
+        "/auth/login",
+        {
+          ...identity(0),
+          rollNo: `NAT${i}`,
+          teamCode: "FF-000000000000",
+        },
+      ),
+    ),
+  );
+  for (const r of attempts) assert.equal(r.status, 401, JSON.stringify(r.body));
+  const valid = await call(
+    supertest.agent(app).set("X-Forwarded-For", ip),
+    "post",
+    "/auth/login",
+    {
+      ...identity(0),
+      name: "  test   STUDENT 0  ",
+      email: " STUDENT0@EXAMPLE.TEST ",
+      teamCode: team.code.toLowerCase(),
+    },
+  );
+  assert.equal(valid.status, 200);
+  assert.equal(
+    (
+      await supertest(app)
+        .get("/api/auth/me")
+        .set("Cookie", "aarohan_session=malformed")
+    ).status,
+    401,
+  );
+  const adminLogin = await call(supertest(app), "post", "/auth/admin/login", {
+    email: " TEST-ADMIN@EXAMPLE.TEST ",
+    password: "test-only-password-123",
+  });
+  assert.equal(adminLogin.status, 200);
+  await models.User.create({
+    name: "Invalid hash fixture",
+    email: "bad-hash@example.test",
+    role: "ADMIN",
+    passwordHash: "plain-text-is-not-a-hash",
+  });
+  const invalid = await call(supertest(app), "post", "/auth/admin/login", {
+    email: "bad-hash@example.test",
+    password: "anything",
+  });
+  assert.equal(invalid.status, 401);
 });

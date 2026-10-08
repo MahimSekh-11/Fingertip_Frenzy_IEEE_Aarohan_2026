@@ -1,4 +1,10 @@
-import { GameSession, Result, Content, User } from "../models/index.js";
+import {
+  GameSession,
+  Result,
+  Content,
+  User,
+  CalculatorPresence,
+} from "../models/index.js";
 import { transaction } from "../config/db.js";
 import { teamFor } from "./teams.js";
 import { gameSettings } from "./settings.js";
@@ -6,6 +12,7 @@ import {
   initializeCalculator,
   advanceCalculator,
   calculatorView,
+  CALCULATOR_PRESENCE_MS,
 } from "../game-services/calculator.js";
 import { fail } from "./errors.js";
 import { puzzleData, detectiveData } from "./content.js";
@@ -226,14 +233,27 @@ export async function mutateGame(game, user, fn) {
 export async function calculatorState(user, event = {}) {
   let view;
   const scope = scopeFor("calculator", user);
-  if (!(await GameSession.exists({ scope, gameId: "calculator" })))
-    await startGame("calculator", user);
-  let recent = await GameSession.findOne({
-    scope,
-    gameId: "calculator",
-  }).sort({ attempt: -1 });
-  if (recent.status === "ABANDONED") {
-    await startGame("calculator", user);
+  let recent = await GameSession.findOne({ scope, gameId: "calculator" }).sort({
+    attempt: -1,
+  });
+  if (
+    event.sessionId &&
+    (!recent ||
+      recent.status === "ABANDONED" ||
+      event.sessionId !== String(recent._id))
+  )
+    fail(409, "This attempt was reset. Refresh the arena before continuing.");
+  if (!recent || recent.status === "ABANDONED") {
+    try {
+      await startGame("calculator", user);
+    } catch (error) {
+      // Simultaneous first connections can race on the unique attempt index.
+      if (
+        error.code !== 11000 ||
+        !(await GameSession.exists({ scope, gameId: "calculator" }))
+      )
+        throw error;
+    }
     recent = await GameSession.findOne({ scope, gameId: "calculator" }).sort({
       attempt: -1,
     });
@@ -245,8 +265,74 @@ export async function calculatorState(user, event = {}) {
         : await User.find({ _id: { $in: team.memberIds } });
     return calculatorView(recent, team, members, user);
   }
+  const team = await teamFor(user);
+  if (user.role !== "ADMIN") assertAvailable(await gameSettings("calculator"));
+  const leaseKey = { sessionId: recent._id, userId: user._id };
+  const renew = () =>
+    CalculatorPresence.updateOne(
+      leaseKey,
+      {
+        $set: { expiresAt: new Date(Date.now() + CALCULATOR_PRESENCE_MS) },
+      },
+      { upsert: true },
+    );
+  try {
+    await renew();
+  } catch (error) {
+    if (error.code !== 11000) throw error;
+    await renew();
+  }
+  const readPresence = async (tx = null) =>
+    Object.fromEntries(
+      (
+        await CalculatorPresence.find({ sessionId: recent._id })
+          .session(tx)
+          .lean()
+      ).map((p) => [String(p.userId), +p.expiresAt]),
+    );
+  const presence = await readPresence(),
+    now = Date.now(),
+    s = recent.state;
+  const online =
+    team.testMode ||
+    team.memberIds.every((id) => (presence[String(id)] || 0) > now);
+  const live = ["COUNTDOWN", "PLAYING"].includes(s.phase);
+  const readyToCheck =
+    s.phase === "PLAYING" &&
+    "XYZ".split("").every((k) => Number.isInteger(s.values[k])) &&
+    now - s.changed >= recent.config.lockSeconds * 1000 &&
+    "XYZ"
+      .split("")
+      .map((k) => s.values[k])
+      .join(",") !== s.checked;
+  // Normal polls only renew this participant's lease and read the game. Write the
+  // shared document for an event, a clock transition, a pause/resume or scoring.
+  if (
+    !event.type &&
+    s.n > 0 &&
+    s.hold === null &&
+    !(live && (!online || (s.deadline && s.deadline <= now) || readyToCheck))
+  ) {
+    recent.state.presence = team.testMode
+      ? Object.fromEntries(
+          team.memberIds.map((id) => [
+            String(id),
+            now + CALCULATOR_PRESENCE_MS,
+          ]),
+        )
+      : presence;
+    const members = team.testMode
+      ? team.members
+      : await User.find({ _id: { $in: team.memberIds } });
+    return calculatorView(recent, team, members, user);
+  }
   await mutateGame("calculator", user, async (doc, team, tx) => {
-    advanceCalculator(doc, team, user, event);
+    if (String(doc._id) !== String(recent._id))
+      fail(409, "This attempt was reset. Refresh the arena before continuing.");
+    if (event.sessionId && event.sessionId !== String(doc._id))
+      fail(409, "This attempt was reset. Refresh the arena before continuing.");
+    const currentPresence = await readPresence(tx);
+    advanceCalculator(doc, team, user, event, Date.now(), currentPresence);
     const members = team.testMode
       ? team.members
       : await User.find({ _id: { $in: team.memberIds } }).session(tx);

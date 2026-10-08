@@ -92,6 +92,7 @@ router.post(
         z.object({ type: z.literal("start") }),
         z.object({ type: z.literal("role"), role: z.enum(["X", "Y", "Z"]) }),
       ])
+      .and(z.object({ sessionId: z.string().optional() }))
       .parse(req.body);
     res.json(await calculatorState(req.user, b));
   }),

@@ -120,9 +120,33 @@ test("Calculator keeps leader-only start and pauses at an offline lease boundary
     advanceCalculator(doc, team, { _id: id }, {}, 4500);
   assert.equal(doc.state.phase, "PLAYING");
   const deadline = doc.state.deadline;
+  // Camera inference, cold starts and a missed poll must not interrupt play.
   advanceCalculator(doc, team, { _id: "x" }, {}, 12000);
-  assert.equal(doc.state.hold, deadline - 9500);
+  assert.equal(doc.state.hold, null);
+  advanceCalculator(doc, team, { _id: "x" }, {}, 35000);
+  assert.equal(doc.state.hold, deadline - 34500);
   assert.equal(doc.state.deadline, null);
+  advanceCalculator(doc, team, { _id: "y" }, {}, 35100);
+  advanceCalculator(doc, team, { _id: "z" }, {}, 35200);
+  assert.equal(doc.state.hold, null);
+  assert.equal(doc.state.deadline, 35200 + deadline - 34500);
+});
+
+test("Calculator preserves time elapsed after countdown when the next request arrives offline", () => {
+  const team = { memberIds: ["x", "y", "z"], leaderId: "x" };
+  const doc = {
+    config: structuredClone(defaults.calculator),
+    state: initializeCalculator(team.memberIds),
+    score: 0,
+  };
+  for (const id of team.memberIds)
+    advanceCalculator(doc, team, { _id: id }, {}, 1000);
+  advanceCalculator(doc, team, { _id: "x" }, { type: "start" }, 1000);
+  const questionDeadline =
+    doc.state.deadline + doc.state.question.time_limit * 1000;
+  advanceCalculator(doc, team, { _id: "x" }, {}, 32000);
+  assert.equal(doc.state.phase, "PLAYING");
+  assert.equal(doc.state.hold, questionDeadline - 31000);
 });
 
 test("Memory retries reuse an unstarted sequence but cannot replay a running stage", () => {

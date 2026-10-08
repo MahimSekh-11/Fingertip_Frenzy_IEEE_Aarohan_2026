@@ -36,6 +36,8 @@ export async function registerLeader({ teamName, ...identity }) {
   return { name: team.name, code: team.code };
 }
 export async function loginParticipant({ teamCode: code, ...identity }) {
+  const normalizedName = (value) =>
+    value.trim().replace(/\s+/g, " ").toLowerCase();
   let user;
   await transaction(async (tx) => {
     const team = await Team.findOne({ code, status: "ACTIVE" }).session(tx);
@@ -49,8 +51,8 @@ export async function loginParticipant({ teamCode: code, ...identity }) {
         user.status !== "ACTIVE" ||
         user.rollNo !== identity.rollNo ||
         user.phoneNo !== identity.phoneNo ||
-        user.email?.toLowerCase() !== identity.email ||
-        user.name.trim().toLowerCase() !== identity.name.toLowerCase() ||
+        user.email?.trim().toLowerCase() !== identity.email ||
+        normalizedName(user.name) !== normalizedName(identity.name) ||
         String(user.teamId) !== String(team._id) ||
         !team.memberIds.some((id) => String(id) === String(user._id))
       )

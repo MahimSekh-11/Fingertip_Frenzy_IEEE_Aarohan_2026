@@ -3,7 +3,8 @@ import { digest } from "../services/auth.js";
 import { asyncRoute, fail } from "../services/errors.js";
 export const requireAuth = asyncRoute(async (req, res, next) => {
   const token = req.cookies.aarohan_session;
-  if (!token) fail(401, "Your session has expired. Please log in again.");
+  if (typeof token !== "string" || !/^[a-f0-9]{64}$/.test(token))
+    fail(401, "Your session has expired. Please log in again.");
   const session = await AuthSession.findOne({
     tokenHash: digest(token),
     expiresAt: { $gt: new Date() },
@@ -64,10 +65,12 @@ export const checkOrigin = (req, res, next) => {
   }
   next();
 };
-export function rateLimit(group, limit, seconds = 60) {
+export function rateLimit(group, limit, seconds = 60, identity = null) {
   return asyncRoute(async (req, res, next) => {
     const window = Math.floor(Date.now() / (seconds * 1000));
-    const key = digest(`${group}:${req.user?._id || req.ip}:${window}`);
+    const key = digest(
+      `${group}:${identity ? identity(req) : req.user?._id || req.ip}:${window}`,
+    );
     const bucket = await RateBucket.findOneAndUpdate(
       { key },
       {

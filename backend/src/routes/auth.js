@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { User, AuthSession } from "../models/index.js";
-import { login, registration } from "../services/validation.js";
+import { login, registration, email } from "../services/validation.js";
 import { registerLeader, loginParticipant } from "../services/registration.js";
 import { asyncRoute, fail } from "../services/errors.js";
 import {
@@ -13,9 +13,20 @@ import {
 } from "../services/auth.js";
 import { requireAuth, rateLimit } from "../middleware/security.js";
 const router = Router();
+const participantKey = (req) =>
+  `${req.ip}:${String(req.body?.rollNo || "")
+    .trim()
+    .toUpperCase()
+    .slice(0, 30)}`;
+const adminKey = (req) =>
+  `${req.ip}:${String(req.body?.email || "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 254)}`;
 router.post(
   "/register",
-  rateLimit("register", 10, 300),
+  rateLimit("register-ip", 300, 300),
+  rateLimit("register", 10, 300, participantKey),
   asyncRoute(async (req, res) => {
     const team = await registerLeader(registration.parse(req.body));
     res.status(201).json({ team });
@@ -23,7 +34,8 @@ router.post(
 );
 router.post(
   "/login",
-  rateLimit("login", 15, 300),
+  rateLimit("login-ip", 300, 300),
+  rateLimit("login", 15, 300, participantKey),
   asyncRoute(async (req, res) => {
     const body = login.parse(req.body);
     const user = await loginParticipant(body);
@@ -33,14 +45,12 @@ router.post(
 );
 router.post(
   "/admin/login",
-  rateLimit("admin-login", 10, 300),
+  rateLimit("admin-login-ip", 50, 300),
+  rateLimit("admin-login", 10, 300, adminKey),
   asyncRoute(async (req, res) => {
     const body = z
       .object({
-        email: z
-          .string()
-          .email()
-          .transform((s) => s.toLowerCase()),
+        email,
         password: z.string().min(1).max(128),
       })
       .strict()

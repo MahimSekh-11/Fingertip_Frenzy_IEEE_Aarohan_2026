@@ -2,6 +2,7 @@
 window.platformApi = async (path, body) => {
   const res = await fetch("/api" + path, {
     credentials: "same-origin",
+    signal: AbortSignal.timeout(15000),
     ...(body
       ? {
           method: "POST",
@@ -10,6 +11,10 @@ window.platformApi = async (path, body) => {
         }
       : {}),
   });
+  if (res.status === 401) {
+    window.visionEngine?.stopCamera();
+    parent.dispatchEvent(new parent.Event("session-expired"));
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || "Could not save your game.");
   return data;

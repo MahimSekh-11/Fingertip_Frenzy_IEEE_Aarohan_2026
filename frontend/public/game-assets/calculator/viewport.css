@@ -24,3 +24,18 @@ button:focus-visible{outline:2px solid #67e8df;outline-offset:3px}
 @media(max-width:700px){#game{padding-top:208px}}
 @media(max-width:700px){body.ingame .wrap{padding:6px}#game{padding-top:154px}#camPanel{width:190px!important;padding:6px!important;top:6px!important;right:6px!important}#camPanel .cam{height:100px;aspect-ratio:auto}#camPanel .bar,#calBtn,#camPanel details{display:none}#camPanel .row{margin-top:4px!important;font-size:10px}#det{font-size:18px!important}#startCard h2{font-size:19px}#startSub{font-size:11px}.hero button.big{font-size:18px;padding:8px 20px}#slots>.slot{padding:6px;min-width:0}#slots .slot b{font-size:25px}#leftPanel{max-height:18vh}#eq{font-size:28px}#game>header{position:absolute;left:8px;top:8px;width:calc(100% - 210px);display:block;font-size:10px}#tname{font-size:13px}#game>header>div:last-child{margin-top:6px}}
 @media(max-width:700px){#game{padding-top:192px}#camPanel .cam{height:80px}#camPanel #calBtn{display:block}#camPanel .camera-actions button{font-size:9px;padding:5px!important}#camPanel #cameraRetry{font-size:10px;padding:5px;margin-top:4px!important}}
+/* Reserve actual space for the camera, including retry controls, on small screens. */
+#syncStatus{margin:4px 0;font-size:11px;line-height:1.35}
+@media(max-width:700px){
+  #game{display:grid;padding-top:0;grid-template-columns:minmax(0,1fr) minmax(150px,190px);grid-template-rows:224px minmax(0,1fr) auto;gap:8px}
+  #game>header{position:static;width:auto;grid-row:1;grid-column:1;align-self:start;overflow-wrap:anywhere}
+  #game>.row{display:contents}
+  #camPanel{position:static!important;grid-row:1;grid-column:2;width:100%!important;align-self:start}
+  #startCard,#arena,#endCard{grid-row:2;grid-column:1/-1}
+  #leftPanel{grid-row:3;grid-column:1/-1;max-height:18vh}
+  #roleBox p{font-size:12px;line-height:1.35;margin:6px 0}
+  #startCard h2{margin:4px 0}#startSub{margin:6px 0}.rolebtns{margin:6px 0;gap:6px}.rolebtns button{min-height:34px}
+  #startBtn{margin-top:8px;min-height:36px}
+  #pauseBar{position:absolute;top:230px;left:6px;right:6px;z-index:6;font-size:11px;padding:6px;margin:0}
+  #game:has(#pauseBar:not(.hide)) #arena{padding-top:44px}
+}
