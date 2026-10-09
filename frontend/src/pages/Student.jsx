@@ -12,26 +12,21 @@ import {
   Empty,
   useResource,
 } from "../components/ui";
-import { subscribeArena } from "../services/realtime";
 import { request } from "../services/api";
 import { catalog } from "./Home";
 export function Dashboard({ gamesOnly = false }) {
-  const { user } = useAuth();
-  const [live, setLive] = useState(null),
-    [liveError, setLiveError] = useState("");
-  useEffect(
-    () =>
-      subscribeArena(
-        "progress",
-        (data) => {
-          setLive(data);
-          setLiveError("");
-        },
-        (error) => setLiveError(error.message),
-      ),
-    [],
-  );
-  const r = { data: live, error: liveError, loading: !live };
+  const { user } = useAuth(),
+    r = useResource(
+      () =>
+        Promise.all([request("/games"), request("/teams/me")]).then(
+          ([a, b]) => ({
+            ...a,
+            ...b,
+          }),
+        ),
+      [],
+      { refreshMs: 5000 },
+    );
   return (
     <Shell
       title={
@@ -86,7 +81,7 @@ export function Dashboard({ gamesOnly = false }) {
               </Link>
             </Card>
           </div>
-          {r.data?.team && <TeamScore liveScore={r.data.score} />}
+          {r.data?.team && <TeamScore />}
           <div className="section-heading">
             <h2>The assessment arena</h2>
             <span>Four original experiences</span>
@@ -128,7 +123,7 @@ export function Dashboard({ gamesOnly = false }) {
                         Awaiting organizer
                       </Button>
                     </>
-                  ) : state?.locked ? (
+                  ) : state?.locked && state.status === "NOT_STARTED" ? (
                     <>
                       <p className="round-lock">
                         Complete the previous round to unlock.
@@ -239,18 +234,18 @@ export function TeamPage() {
     </Shell>
   );
 }
-function TeamScore({ liveScore } = {}) {
+function TeamScore() {
   const r = useResource(() => request("/teams/me/score"));
   useEffect(() => {
     const id = setInterval(r.reload, 30000);
     return () => clearInterval(id);
   }, []);
-  const row = liveScore || r.data?.score;
+  const row = r.data?.score;
   return (
     <Card>
       <h2>Your team scores</h2>
       <Notice error>{r.error}</Notice>
-      {r.loading && !row ? (
+      {r.loading ? (
         <Loading />
       ) : row ? (
         <div className="score-strip">

@@ -84,9 +84,7 @@ export async function connectDB() {
     pending = mongoose
       .connect(uri, {
         serverSelectionTimeoutMS: 8000,
-        // Realtime cursors share this pool with commands; leave capacity for writes.
-        maxPoolSize: 40,
-        waitQueueTimeoutMS: 5000,
+        maxPoolSize: 10,
       })
       .catch((e) => {
         throw databaseError(connectionErrorCode(e));

@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, Notice } from "./ui";
 import { request } from "../services/api";
-import { subscribeArena } from "../services/realtime";
 
 export function AdminTestControls({ game }) {
   const [busy, setBusy] = useState(false);
@@ -33,21 +32,10 @@ export function AdminTestControls({ game }) {
           if (alive) setError(e.message);
         });
     refresh();
-    const disconnect = subscribeArena(
-      "calculator",
-      (data) => {
-        if (alive) {
-          apply(data);
-          setError("");
-        }
-      },
-      (error) => {
-        if (alive && error.status !== 409) setError(error.message);
-      },
-    );
+    const timer = setInterval(refresh, 1500);
     return () => {
       alive = false;
-      disconnect();
+      clearInterval(timer);
     };
   }, [game, apply]);
   const act = async (fn) => {
@@ -63,12 +51,7 @@ export function AdminTestControls({ game }) {
   };
   const event = (body) =>
     act(async () => {
-      apply(
-        await request("/games/calculator/event", {
-          method: "POST",
-          body: { ...body, sessionId: state?.sessionId },
-        }),
-      );
+      apply(await request("/games/calculator/event", { method: "POST", body }));
     });
   return (
     <details className="admin-test-panel arena-practice">

@@ -13,7 +13,6 @@ export const requireAuth = asyncRoute(async (req, res, next) => {
     session && (await User.findOne({ _id: session.userId, status: "ACTIVE" }));
   if (!user) fail(401, "Your session has expired. Please log in again.");
   req.user = user;
-  req.authSession = session;
   next();
 });
 export const requireAdmin = (req, res, next) => {

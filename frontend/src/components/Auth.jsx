@@ -16,7 +16,6 @@ export function AuthProvider({ children }) {
     [expired, setExpired] = useState(false),
     [authError, setAuthError] = useState("");
   const generation = useRef(0);
-  const loggingOut = useRef(false);
   const refresh = async () => {
     const current = ++generation.current;
     setLoading(true);
@@ -35,7 +34,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     refresh();
     const handler = () => {
-      if (loggingOut.current) return;
       bumpAuthEpoch();
       generation.current++;
       setUser(null);
@@ -69,22 +67,12 @@ export function AuthProvider({ children }) {
     }
   };
   const logout = async () => {
-    loggingOut.current = true;
     bumpAuthEpoch();
-    const current = ++generation.current;
-    try {
-      await request("/auth/logout", { method: "POST" });
-      if (current !== generation.current) return;
-      setUser(null);
-      setExpired(false);
-      setAuthError("");
-      setLoading(false);
-    } catch (error) {
-      if (current === generation.current) setAuthError(error.message);
-      throw error;
-    } finally {
-      loggingOut.current = false;
-    }
+    generation.current++;
+    await request("/auth/logout", { method: "POST" });
+    setUser(null);
+    setAuthError("");
+    setLoading(false);
   };
   return (
     <Context.Provider

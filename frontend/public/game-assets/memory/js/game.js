@@ -15,7 +15,6 @@ class GameEngine {
 
     this.activeSequence = [];
     this.userSequence = [];
-    this.guessResults = [];
     this.currentInputIndex = 0;
     this.inputTimer = null;
     this.inputTimeLeft = 0;
@@ -86,7 +85,6 @@ class GameEngine {
     this._stagePrepared = false;
     this.activeSequence = [];
     this.userSequence = [];
-    this.guessResults = [];
     this.currentInputIndex = 0;
 
     // Update UI Stage tracker
@@ -111,9 +109,8 @@ class GameEngine {
       `${config.count} Numbers`;
     document.getElementById("brief-display-time").textContent =
       `${config.displayInterval / 1000}s Interval`;
-    document.getElementById("brief-response-time").textContent = this.testMode
-      ? "Unlimited Answer Time"
-      : `${config.responseInterval / 1000}s Answer Time`;
+    document.getElementById("brief-response-time").textContent =
+      this.testMode ? "Unlimited Answer Time" : `${config.responseInterval / 1000}s Answer Time`;
 
     window.soundEngine.init();
   }
@@ -128,19 +125,11 @@ class GameEngine {
       button.textContent = "Preparing camera…";
       window.visionEngine.onFrameUpdate = null;
       window.visionEngine.onDigitLocked = null;
-      const ready = await window.visionEngine.init(
-        document.getElementById("webcam-video"),
-        document.getElementById("vision-canvas"),
-      );
+      const ready = await window.visionEngine.init(document.getElementById("webcam-video"), document.getElementById("vision-canvas"));
       if (!ready || !(await window.visionEngine.startCamera()))
-        throw new Error(
-          "Hand gestures are required. Allow camera access and wait for hand tracking to be ready before starting.",
-        );
+        throw new Error("Hand gestures are required. Allow camera access and wait for hand tracking to be ready before starting.");
       if (!this._stagePrepared) {
-        const stage = await window.platformApi("/games/memory/stage/start", {
-          stage: this.currentStage,
-        });
-        this.sessionId = stage.sessionId;
+        const stage = await window.platformApi("/games/memory/stage/start", { stage: this.currentStage });
         this.activeSequence = stage.sequence;
         this.stageConfigs[this.currentStage] = {
           count: stage.config.numbersCount,
@@ -315,7 +304,7 @@ class GameEngine {
 
     // Render Left Panel: Stage Sequence Grid & Start Answer Step immediately
     this.renderStageSequenceGrid();
-    this.startAnswerStep(this.userSequence.length);
+    this.startAnswerStep(0);
 
     // Frame update for HUD elements & instant correct gesture detection
     window.visionEngine.onDigitLocked = null; // Controlled by game engine
@@ -372,15 +361,6 @@ class GameEngine {
         <div class="slot-icon" id="stage-slot-icon-${i}">—</div>
         <div class="slot-val" id="stage-slot-val-${i}">—</div>
       `;
-      const saved = this.guessResults[i];
-      if (saved) {
-        item.classList.add(saved.correct ? "slot-correct" : "slot-wrong");
-        if (saved.timedOut) item.classList.add("slot-timeout");
-        item.querySelector(".slot-icon").textContent = saved.correct
-          ? "✓"
-          : "✗";
-        item.querySelector(".slot-val").textContent = saved.digit;
-      }
       grid.appendChild(item);
     }
   }
@@ -392,7 +372,7 @@ class GameEngine {
   }
 
   // 5. Start answering for step `index`
-  async startAnswerStep(index) {
+  startAnswerStep(index) {
     const config = this.stageConfigs[this.currentStage];
     const total = this.activeSequence.length;
 
@@ -401,19 +381,6 @@ class GameEngine {
       this.finishStage();
       return;
     }
-    this.isStepLocked = true;
-    let timing;
-    try {
-      timing = await window.platformApi("/games/memory/guess/start", {
-        sessionId: this.sessionId,
-        index,
-      });
-    } catch (error) {
-      window.app.showToast(error.message, "error");
-      return;
-    }
-    this.guessDeadline = timing.deadline;
-    this.serverOffset = (timing.serverNow || Date.now()) - Date.now();
 
     this.currentInputIndex = index;
     this.expectedDigit = this.activeSequence[index];
@@ -476,16 +443,17 @@ class GameEngine {
     const statusText = document.getElementById("central-status-text");
     if (statusIcon) statusIcon.textContent = "⏱️";
     if (statusText)
-      statusText.innerHTML = `Hold <strong>correct gesture</strong> continuously for <strong>1.0s</strong> to confirm & advance &middot; ${this.testMode ? "Unlimited practice" : "Otherwise the last gesture is recorded at timeout"}`;
+      statusText.innerHTML =
+        `Hold <strong>correct gesture</strong> continuously for <strong>1.0s</strong> to confirm & advance &middot; ${this.testMode ? "Unlimited practice" : "Otherwise the last gesture is recorded at timeout"}`;
 
     // Reset central detected digit and clear green tick mark
     const centralCard = document.getElementById("central-detected-card");
-    if (centralCard)
-      centralCard.classList.remove("match-correct", "match-timeout");
+    if (centralCard) centralCard.classList.remove("match-correct");
     const digitDisplay = document.getElementById("central-detected-digit");
     if (digitDisplay) digitDisplay.textContent = "--";
 
     // 2. Below that: Show the Timer
+    const startTime = Date.now();
     const duration = config.responseInterval;
     this.inputTimeLeft = duration / 1000;
 
@@ -505,10 +473,8 @@ class GameEngine {
       return;
     }
     this.inputTimer = setInterval(() => {
-      const left = Math.max(
-        0,
-        (this.guessDeadline - Date.now() - this.serverOffset) / 1000,
-      );
+      const elapsed = Date.now() - startTime;
+      const left = Math.max(0, (duration - elapsed) / 1000);
       this.inputTimeLeft = left;
 
       if (timerDigits) timerDigits.textContent = `${left.toFixed(1)}s`;
@@ -541,18 +507,17 @@ class GameEngine {
               : 0;
 
         if (statusText) {
-          statusText.textContent = `Time expired. Recording the last gesture: ${finalDigit}`;
+          statusText.innerHTML = `<span style="color: var(--accent-gold); font-weight: 700;">⏱️ Time up! Submitting last gesture: ${finalDigit}</span>`;
         }
 
-        this.handleDigitLocked(finalDigit, false, true);
+        const isCorrect = finalDigit === this.expectedDigit;
+        this.handleDigitLocked(finalDigit, isCorrect);
       }
     }, 40);
   }
 
   // Frame update from camera stream
   updateHudOverlay(data) {
-    // Freeze the recorded result while feedback is shown or a save is pending.
-    if (this.isStepLocked) return;
     const digitDisplay = document.getElementById("central-detected-digit");
     const handsBreakdown = document.getElementById("central-hands-breakdown");
     const cameraHandStatus = document.getElementById("camera-hand-status");
@@ -680,37 +645,11 @@ class GameEngine {
   }
 
   // 6. Handle Digit Locked & Update Stage Sequence Grid (Green if correct, Red if wrong)
-  async handleDigitLocked(digit, isCorrect = false, timedOut = false) {
-    if (!isCorrect && !timedOut) return;
+  handleDigitLocked(digit, isCorrect = false) {
     if (this.inputTimer) clearInterval(this.inputTimer);
     this.isStepLocked = true;
     this.correctHoldStartTime = null;
     this.currentHoldDigit = null;
-    try {
-      const result = await window.platformApi("/games/memory/guess", {
-        sessionId: this.sessionId,
-        index: this.currentInputIndex,
-        digit,
-      });
-      digit = result.digit;
-      isCorrect = result.correct;
-      timedOut = result.timedOut;
-    } catch (error) {
-      window.app.showToast(
-        error.message + " Retry saving this guess.",
-        "error",
-      );
-      const status = document.getElementById("central-status-text");
-      if (status) {
-        status.textContent = error.message;
-        const retry = document.createElement("button");
-        retry.textContent = "Retry saving guess";
-        retry.onclick = () =>
-          this.handleDigitLocked(digit, isCorrect, timedOut);
-        status.appendChild(retry);
-      }
-      return;
-    }
 
     const holdBox = document.getElementById("gesture-hold-meter-box");
     const cameraHudHoldFill = document.getElementById("camera-hud-hold-fill");
@@ -723,20 +662,11 @@ class GameEngine {
 
     window.soundEngine.playLockIn();
     this.userSequence.push(digit);
-    this.guessResults.push({ digit, correct: isCorrect, timedOut });
 
     // Update central detected card visual state
     const centralCard = document.getElementById("central-detected-card");
     const digitDisplay = document.getElementById("central-detected-digit");
     if (digitDisplay) digitDisplay.textContent = digit;
-    if (centralCard) centralCard.classList.toggle("match-timeout", timedOut);
-    const status = document.getElementById("central-status-text");
-    if (status)
-      status.textContent = timedOut
-        ? `✕ ${digit} · Timed out · 0 points. Moving to the next number.`
-        : isCorrect
-          ? `✓ ${digit} · Correct · +1 point. Moving to the next number.`
-          : `✕ ${digit} · Incorrect · 0 points.`;
 
     if (isCorrect) {
       // User rule: "if the shown digit is correct, make the digit icon green, show a large tick mark and then move to the next number"
@@ -767,7 +697,6 @@ class GameEngine {
       } else {
         // User rule: "if answered wrong then make it red"
         slotItem.classList.add("slot-wrong");
-        if (timedOut) slotItem.classList.add("slot-timeout");
         slotItem.classList.remove("slot-correct");
         if (slotIcon) slotIcon.textContent = "✗";
         if (slotVal) slotVal.textContent = digit;
@@ -780,7 +709,7 @@ class GameEngine {
     }
 
     // Brief delay before advancing to next step (allows user to see large green tick mark)
-    const delay = timedOut ? 850 : isCorrect ? 420 : 280;
+    const delay = isCorrect ? 420 : 280;
     setTimeout(() => {
       if (centralCard) centralCard.classList.remove("match-correct");
       this.startAnswerStep(this.currentInputIndex + 1);
@@ -803,7 +732,7 @@ class GameEngine {
     const total = this.activeSequence.length;
 
     for (let i = 0; i < total; i++) {
-      if (this.guessResults[i]?.correct === true) {
+      if (this.activeSequence[i] === this.userSequence[i]) {
         stageScore++;
       }
     }
@@ -827,14 +756,13 @@ class GameEngine {
     for (let i = 0; i < total; i++) {
       const orig = this.activeSequence[i];
       const user = this.userSequence[i];
-      const isMatch = this.guessResults[i]?.correct === true;
-      const timedOut = this.guessResults[i]?.timedOut;
+      const isMatch = orig === user;
 
       const col = document.createElement("div");
       col.className = "compare-col";
       col.innerHTML = `
         <div class="orig-box" title="Expected">${orig}</div>
-        <div class="user-box ${isMatch ? "match" : "mismatch"}${timedOut ? " slot-timeout" : ""}" title="${timedOut ? "Timed out" : "Your Gesture"}">${user}</div>
+        <div class="user-box ${isMatch ? "match" : "mismatch"}" title="Your Gesture">${user}</div>
         <span style="font-size:0.75rem; color:${isMatch ? "#10b981" : "#ef4444"}">${isMatch ? "✓" : "✗"}</span>
       `;
       compareGrid.appendChild(col);
