@@ -160,24 +160,42 @@ export async function startGame(game, user) {
       maximum = state.puzzles.reduce((a, p) => a + p.points, 0);
     }
     if (game === "detective") {
-      const content = await Content.findOne({ gameId: game, published: true })
-        .sort({ order: 1 })
+      const contents = await Content.find({ gameId: game, published: true })
+        .sort({ order: 1, _id: 1 })
         .session(tx)
         .lean();
-      if (!content?.data?.questions?.length)
+      if (!contents.length || !contents.some((c) => c.data?.questions?.length))
         fail(
           409,
           "No detective case has been published by the event organizer.",
         );
-      if (!detectiveData.safeParse(content.data).success)
-        fail(
-          409,
-          "The published Detective case is incomplete. Ask the organizer to correct and save its questions and clues.",
-        );
+      const allQuestions = [];
+      const allClues = [];
+      const allSuspects = [];
+      const allHints = [];
+      for (const content of contents) {
+        if (!detectiveData.safeParse(content.data).success)
+          fail(
+            409,
+            "A published Detective case is incomplete. Ask the organizer to correct and save its questions and clues.",
+          );
+        allQuestions.push(...content.data.questions);
+        allClues.push(...(content.data.clues || []));
+        allSuspects.push(...(content.data.suspects || []));
+        allHints.push(...(content.data.hints || []));
+      }
       state.case = {
-        ...content.data,
-        id: String(content._id),
-        title: content.title,
+        id: String(contents[0]._id),
+        title:
+          contents.length === 1
+            ? contents[0].title
+            : "Detective Investigation",
+        description: contents[0].data.description || "",
+        difficulty: contents[0].data.difficulty || "Medium",
+        suspects: allSuspects,
+        clues: allClues,
+        questions: allQuestions,
+        hints: allHints,
       };
       state.index = 0;
       state.answers = [];
